@@ -131,6 +131,8 @@ class Report(Base):
     status = Column(String, default="Generated")
     content = Column(Text, nullable=True)
     source_count = Column(Integer, default=0)
+    submitted_by = Column(String, nullable=True)
+    submitted_at = Column(DateTime, nullable=True)
 
 
 class AIQuestion(Base):
@@ -164,3 +166,14 @@ class ActivityHistory(Base):
     item = Column(String, default="")
     status = Column(String, default="Completed")
     details = Column(String, default="")
+
+class AdminQuery(Base):
+    __tablename__ = "admin_queries"
+    id = Column(Integer, primary_key=True, index=True)
+    report_id = Column(Integer, index=True)
+    query = Column(String)
+    action_requested = Column(String)
+    source = Column(String, default="Administrator")
+    document_name = Column(String)
+    date = Column(DateTime, default=datetime.utcnow)
+    status = Column(String, default="Open")

@@ -87,10 +87,9 @@ def seed():
     # ---- USERS ----
     print("[2/12] Seeding users...")
     users = [
-        User(username="admin", password="admin123", role="Admin", full_name="System Administrator"),
-        User(username="reporting", password="report123", role="Reporting Officer", full_name="R.K. Sharma"),
-        User(username="analyst", password="analyst123", role="Analyst", full_name="P. Verma"),
-        User(username="viewer", password="viewer123", role="Viewer", full_name="A. Singh"),
+        User(username="admin", password="admin123", role="Administrator", full_name="System Administrator"),
+        User(username="projectmanager", password="manager123", role="Project Manager", full_name="Project Manager"),
+        User(username="supervisor", password="supervisor123", role="Supervisor", full_name="Mine Supervisor")
     ]
     db.add_all(users)
     db.flush()

@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import axios from 'axios';
 import { 
   BarChart2, 
@@ -10,7 +10,11 @@ import {
   Building2, 
   X,
   ExternalLink,
-  ChevronRight
+  ChevronRight,
+  Send,
+  User,
+  Clock,
+  AlertCircle
 } from 'lucide-react';
 
 const API = import.meta.env.VITE_API_URL || 'http://localhost:8000';
@@ -27,14 +31,61 @@ interface ReportSummary {
   created_at: string;
   status: string;
   source_count: number;
+  submitted_by?: string;
+  submitted_at?: string;
 }
 
+// ─── Toast Notification Component ───────────────────────────────────────────
+interface ToastProps {
+  message: string;
+  type: 'success' | 'error' | 'info';
+  onClose: () => void;
+}
+
+const Toast: React.FC<ToastProps> = ({ message, type, onClose }) => {
+  useEffect(() => {
+    const timer = setTimeout(onClose, 4000);
+    return () => clearTimeout(timer);
+  }, [onClose]);
+
+  const colors = {
+    success: 'bg-emerald-600',
+    error: 'bg-red-600',
+    info: 'bg-blue-600',
+  };
+
+  const icons = {
+    success: <CheckCircle size={18} className="mr-2 shrink-0" />,
+    error: <AlertCircle size={18} className="mr-2 shrink-0" />,
+    info: <AlertCircle size={18} className="mr-2 shrink-0" />,
+  };
+
+  return (
+    <div
+      className={`fixed bottom-6 right-6 z-[100] flex items-center px-5 py-3.5 rounded-xl shadow-xl text-white text-sm font-semibold ${colors[type]} animate-fade-in-up`}
+      style={{ minWidth: '300px', maxWidth: '420px' }}
+    >
+      {icons[type]}
+      <span className="flex-1">{message}</span>
+      <button onClick={onClose} className="ml-4 text-white/80 hover:text-white">
+        <X size={16} />
+      </button>
+    </div>
+  );
+};
+
+// ─── Main Reports Component ──────────────────────────────────────────────────
 const Reports: React.FC = () => {
   const [reports, setReports] = useState<ReportSummary[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedReport, setSelectedReport] = useState<any>(null);
   const [modalOpen, setModalOpen] = useState(false);
   const [generating, setGenerating] = useState(false);
+
+  // Submit to Administration state
+  const [submitModalOpen, setSubmitModalOpen] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' | 'info' } | null>(null);
 
   // Form State
   const [formData, setFormData] = useState({
@@ -43,6 +94,11 @@ const Reports: React.FC = () => {
     year: 2024,
     mine: ''
   });
+
+  // Get current logged-in user
+  const currentUser = (() => {
+    try { return JSON.parse(localStorage.getItem('user') || '{}'); } catch { return {}; }
+  })();
 
   useEffect(() => {
     fetchReports();
@@ -97,8 +153,60 @@ const Reports: React.FC = () => {
     window.open(url, '_blank');
   };
 
+  // ─── Submit to Administration Handler ──────────────────────────────────────
+  const isAlreadySubmitted = selectedReport?.status === 'Submitted to Administrator';
+
+  const handleSubmitToAdmin = () => {
+    if (!selectedReport) return;
+    setSubmitModalOpen(true);
+  };
+
+  const confirmSubmitToAdmin = async () => {
+    if (!selectedReport) return;
+    setSubmitting(true);
+    try {
+      const submitterName = currentUser?.full_name || 'Project Manager';
+      const res = await axios.put(`${API}/reports/${selectedReport.id}/submit`, {
+        submitted_by: submitterName
+      });
+
+      // Update the selected report in state with submission info
+      const updatedReport = {
+        ...selectedReport,
+        status: res.data.status,
+        submitted_by: res.data.submitted_by,
+        submitted_at: res.data.submitted_at,
+      };
+      setSelectedReport(updatedReport);
+
+      // Also update in the reports list
+      setReports(prev => prev.map(r =>
+        r.id === selectedReport.id
+          ? { ...r, status: res.data.status, submitted_by: res.data.submitted_by, submitted_at: res.data.submitted_at }
+          : r
+      ));
+
+      setSubmitModalOpen(false);
+      setToast({ message: 'Report submitted to Administration successfully.', type: 'success' });
+    } catch (err: any) {
+      setSubmitModalOpen(false);
+      if (err?.response?.status === 400) {
+        setToast({ message: 'This report has already been submitted to Administration.', type: 'error' });
+      } else {
+        setToast({ message: 'Failed to submit report. Please try again.', type: 'error' });
+      }
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const dismissToast = useCallback(() => setToast(null), []);
+
   return (
     <div className="p-8 max-w-7xl mx-auto">
+      {/* Toast */}
+      {toast && <Toast message={toast.message} type={toast.type} onClose={dismissToast} />}
+
       {/* Header */}
       <div className="mb-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
@@ -107,13 +215,36 @@ const Reports: React.FC = () => {
             Synthesize and download comprehensive mining intelligence and subsidiary review reports.
           </p>
         </div>
-        <button
-          onClick={() => setModalOpen(true)}
-          className="flex items-center px-4 py-2.5 bg-blue-700 hover:bg-blue-800 text-white font-medium rounded-lg text-sm transition shadow-sm self-start sm:self-auto"
-        >
-          <Plus size={16} className="mr-1.5" />
-          Generate New Report
-        </button>
+        {/* Action Buttons */}
+        <div className="flex items-center gap-2 self-start sm:self-auto flex-wrap">
+          {/* Submit to Administration Button */}
+          {selectedReport && (
+            isAlreadySubmitted ? (
+              <button
+                disabled
+                className="flex items-center px-4 py-2.5 bg-emerald-50 text-emerald-700 border border-emerald-200 font-medium rounded-lg text-sm cursor-not-allowed opacity-80 shadow-sm"
+              >
+                <CheckCircle size={16} className="mr-1.5" />
+                Submitted to Administration
+              </button>
+            ) : (
+              <button
+                onClick={handleSubmitToAdmin}
+                className="flex items-center px-4 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white font-medium rounded-lg text-sm transition shadow-sm"
+              >
+                <Send size={16} className="mr-1.5" />
+                Submit to Administration
+              </button>
+            )
+          )}
+          <button
+            onClick={() => setModalOpen(true)}
+            className="flex items-center px-4 py-2.5 bg-blue-700 hover:bg-blue-800 text-white font-medium rounded-lg text-sm transition shadow-sm"
+          >
+            <Plus size={16} className="mr-1.5" />
+            Generate New Report
+          </button>
+        </div>
       </div>
 
       {loading ? (
@@ -148,6 +279,11 @@ const Reports: React.FC = () => {
                           {r.report_id}
                         </span>
                         <span className="text-xs text-gray-500 font-medium">FY {r.year}</span>
+                        {r.status === 'Submitted to Administrator' && (
+                          <span className="text-xs bg-emerald-100 text-emerald-700 px-1.5 py-0.5 rounded font-medium">
+                            Submitted
+                          </span>
+                        )}
                       </div>
                       <h3 className={`text-sm font-semibold ${isSelected ? 'text-blue-900' : 'text-gray-900'}`}>
                         {r.title}
@@ -177,7 +313,11 @@ const Reports: React.FC = () => {
                   <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                     <div>
                       <div className="flex items-center space-x-2 mb-1">
-                        <span className="px-2 py-0.5 bg-green-100 text-green-800 text-xs font-semibold rounded">
+                        <span className={`px-2 py-0.5 text-xs font-semibold rounded ${
+                          selectedReport.status === 'Submitted to Administrator'
+                            ? 'bg-emerald-100 text-emerald-800'
+                            : 'bg-green-100 text-green-800'
+                        }`}>
                           {selectedReport.status}
                         </span>
                         <span className="text-xs text-gray-500 font-mono">
@@ -218,6 +358,28 @@ const Reports: React.FC = () => {
                       </button>
                     </div>
                   </div>
+
+                  {/* Submission Info Banner — shown after submission */}
+                  {selectedReport.status === 'Submitted to Administrator' && (
+                    <div className="mt-4 p-4 bg-emerald-50 border border-emerald-200 rounded-xl flex flex-col sm:flex-row sm:items-center gap-3">
+                      <div className="flex items-center text-emerald-700">
+                        <CheckCircle size={18} className="mr-2 shrink-0" />
+                        <span className="font-semibold text-sm">Submitted to Administration</span>
+                      </div>
+                      <div className="flex flex-wrap gap-4 text-xs text-emerald-800 sm:ml-auto">
+                        <span className="flex items-center">
+                          <User size={12} className="mr-1" />
+                          <b>Submitted by:</b>&nbsp;{selectedReport.submitted_by || 'Project Manager'}
+                        </span>
+                        {selectedReport.submitted_at && (
+                          <span className="flex items-center">
+                            <Clock size={12} className="mr-1" />
+                            <b>On:</b>&nbsp;{new Date(selectedReport.submitted_at).toLocaleString()}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  )}
                 </div>
 
                 {/* Report Content Body */}
@@ -394,6 +556,83 @@ const Reports: React.FC = () => {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Submit to Administration Confirmation Modal */}
+      {submitModalOpen && selectedReport && (
+        <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-xl shadow-xl border border-gray-200 max-w-md w-full p-6">
+            {/* Modal Header */}
+            <div className="flex items-center mb-5">
+              <div className="p-2 bg-indigo-100 rounded-lg mr-3">
+                <Send size={20} className="text-indigo-600" />
+              </div>
+              <div>
+                <h3 className="text-lg font-bold text-gray-900">Submit this report to Administration?</h3>
+              </div>
+              <button
+                onClick={() => setSubmitModalOpen(false)}
+                className="ml-auto text-gray-400 hover:text-gray-600"
+              >
+                <X size={20} />
+              </button>
+            </div>
+
+            {/* Report name */}
+            <div className="bg-gray-50 border border-gray-200 rounded-lg p-4 mb-5">
+              <div className="flex items-center space-x-2 mb-1">
+                <span className="font-mono text-xs text-blue-700 bg-blue-50 px-1.5 py-0.5 rounded font-semibold">
+                  {selectedReport.report_id}
+                </span>
+              </div>
+              <p className="text-sm font-semibold text-gray-900">{selectedReport.title}</p>
+              <p className="text-xs text-gray-500 mt-1">
+                {selectedReport.subsidiary} • FY {selectedReport.year} • {selectedReport.source_count} sources
+              </p>
+            </div>
+
+            <p className="text-sm text-gray-600 mb-6">
+              This report will be sent to the Administrator for review, approval, or revision. This action cannot be undone.
+            </p>
+
+            {/* Workflow info */}
+            <div className="flex items-center justify-center gap-2 text-xs text-gray-400 mb-6">
+              <span className="px-2 py-1 bg-indigo-50 text-indigo-700 rounded font-semibold">Project Manager</span>
+              <span>→</span>
+              <span className="px-2 py-1 bg-emerald-50 text-emerald-700 rounded font-semibold">Administration</span>
+              <span>→</span>
+              <span className="px-2 py-1 bg-gray-100 text-gray-500 rounded font-medium">Review / Approve</span>
+            </div>
+
+            {/* Action Buttons */}
+            <div className="flex justify-end gap-3">
+              <button
+                onClick={() => setSubmitModalOpen(false)}
+                disabled={submitting}
+                className="px-4 py-2 text-sm text-gray-600 bg-white border border-gray-300 hover:bg-gray-50 rounded-lg font-medium transition disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={confirmSubmitToAdmin}
+                disabled={submitting}
+                className="px-5 py-2 text-sm bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg font-semibold transition disabled:opacity-50 flex items-center"
+              >
+                {submitting ? (
+                  <>
+                    <div className="animate-spin h-4 w-4 border-2 border-white border-t-transparent rounded-full mr-2" />
+                    Submitting...
+                  </>
+                ) : (
+                  <>
+                    <Send size={15} className="mr-1.5" />
+                    Submit
+                  </>
+                )}
+              </button>
+            </div>
           </div>
         </div>
       )}

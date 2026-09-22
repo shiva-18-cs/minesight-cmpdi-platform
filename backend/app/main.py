@@ -15,7 +15,8 @@ from sqlalchemy import func, or_, desc
 from .database import engine, Base, get_db
 from .models.domain import (
     User, Subsidiary, Mine, Document, DocumentText, ExtractedInformation,
-    DataCheck, Difference, Topic, Report, AIQuestion, Notification, ActivityHistory
+    DataCheck, Difference, Topic, Report, AIQuestion, Notification, ActivityHistory,
+    AdminQuery
 )
 
 Base.metadata.create_all(bind=engine)
@@ -228,6 +229,176 @@ def delete_document(doc_id: int, db: Session = Depends(get_db)):
     _log_activity(db, "System", "Deleted Document", "Documents", doc.doc_id, doc.name)
     db.commit()
     return {"status": "deleted"}
+
+@app.put("/documents/{doc_id}/submit")
+def submit_document(doc_id: int, db: Session = Depends(get_db)):
+    doc = db.query(Document).filter(Document.id == doc_id).first()
+    if not doc: raise HTTPException(404, "Document not found")
+    doc.status = "Submitted to Project Manager"
+    _log_activity(db, "Supervisor", "Submitted Document", "Documents", doc.doc_id, doc.name)
+    db.commit()
+    return {"status": doc.status}
+
+@app.get("/supervisor/stats")
+def get_supervisor_stats(db: Session = Depends(get_db)):
+    total = db.query(Document).count()
+    pending = db.query(Document).filter(Document.status == "Processed").count()
+    approved = db.query(Document).filter(Document.status == "Approved").count()
+    return {
+        "total_documents": total,
+        "pending_submissions": pending,
+        "approved_reports": approved,
+        "queries_received": 2
+    }
+
+@app.get("/queries/supervisor")
+def get_supervisor_queries():
+    return [
+        {
+            "id": 1,
+            "query": "Production value for April 2024 requires verification.",
+            "source": "Project Manager",
+            "document": "MCL Production Report 2024",
+            "date": "21 Sep 2026",
+            "status": "Pending"
+        },
+        {
+            "id": 2,
+            "query": "Missing geological mapping data on page 4.",
+            "source": "Administrator",
+            "document": "Geological Survey Report",
+            "date": "20 Sep 2026",
+            "status": "Pending"
+        }
+    ]
+
+@app.post("/queries/{query_id}/respond")
+def respond_query(query_id: int):
+    return {"status": "Response Submitted"}
+
+@app.put("/documents/{doc_id}/validate")
+def validate_document(doc_id: int, db: Session = Depends(get_db)):
+    doc = db.query(Document).filter(Document.id == doc_id).first()
+    if not doc: raise HTTPException(404, "Document not found")
+    doc.status = "Validated"
+    _log_activity(db, "Project Manager", "Validated Document", "Data Validation", doc.doc_id, doc.name)
+    db.commit()
+    return {"status": doc.status}
+
+@app.put("/reports/{report_id}/submit")
+def submit_report(report_id: int, data: dict = {}, db: Session = Depends(get_db)):
+    r = db.query(Report).filter(Report.id == report_id).first()
+    if not r: raise HTTPException(404, "Report not found")
+    if r.status == "Submitted to Administrator":
+        raise HTTPException(400, "Report already submitted to Administrator")
+    submitted_by = data.get("submitted_by", "Project Manager")
+    r.status = "Submitted to Administrator"
+    r.submitted_by = submitted_by
+    r.submitted_at = datetime.utcnow()
+    _log_activity(db, submitted_by, "Submitted Report to Admin", "Reports", r.report_id, r.title)
+    # Create a notification for the submission
+    db.add(Notification(
+        user="Administrator",
+        message=f"Report '{r.title}' submitted by {submitted_by} for review.",
+        type="info",
+        link="/"
+    ))
+    db.commit()
+    return {
+        "status": r.status,
+        "submitted_by": r.submitted_by,
+        "submitted_at": r.submitted_at.isoformat() if r.submitted_at else None
+    }
+
+@app.get("/pm/stats")
+def get_pm_stats(db: Session = Depends(get_db)):
+    pending = db.query(Document).filter(Document.status == "Submitted to Project Manager").count()
+    validating = db.query(Document).filter(Document.status == "Under Validation").count()
+    reports = db.query(Report).count()
+    submitted_admin = db.query(Report).filter(Report.status == "Submitted to Administrator").count()
+    return {
+        "pending_reviews": pending,
+        "under_validation": validating,
+        "reports_generated": reports,
+        "submitted_to_admin": submitted_admin,
+        "open_queries": 3
+    }
+
+@app.get("/queries/pm")
+def get_pm_queries(db: Session = Depends(get_db)):
+    queries = db.query(AdminQuery).filter(AdminQuery.status == "Open").all()
+    return [{
+        "id": q.id,
+        "query": q.query,
+        "action_requested": q.action_requested,
+        "source": q.source,
+        "document": q.document_name,
+        "date": q.date.strftime("%d %b %Y"),
+        "status": q.status
+    } for q in queries]
+
+@app.post("/queries/pm/{query_id}/resolve")
+def resolve_pm_query(query_id: int, db: Session = Depends(get_db)):
+    q = db.query(AdminQuery).filter(AdminQuery.id == query_id).first()
+    if q:
+        q.status = "Resolved"
+        
+        # We should also mark the related report as 'Resubmitted' (we assume PM resubmits it implicitly or explicitly later)
+        # For simplicity, if we know the report, we can update it here. But usually PM clicks resubmit explicitly.
+        
+        db.commit()
+    return {"status": "Resolved / Resubmitted"}
+
+# ──────────────────────────────────────────────
+# ADMIN WORKFLOW
+# ──────────────────────────────────────────────
+
+@app.get("/admin/reports")
+def get_admin_reports(db: Session = Depends(get_db)):
+    # Fetch reports awaiting review (Submitted to Administrator or Resubmitted)
+    reports = db.query(Report).filter(Report.status.in_(["Submitted to Administrator", "Resubmitted", "Under Administrator Review"])).all()
+    return [{
+        "id": r.id,
+        "report_id": r.report_id,
+        "title": r.title,
+        "report_type": r.report_type,
+        "year": r.year,
+        "subsidiary": r.subsidiary,
+        "mine": r.mine,
+        "created_by": r.created_by,
+        "created_at": r.created_at.isoformat() if r.created_at else "",
+        "status": r.status,
+        "source_count": r.source_count,
+        "submitted_by": r.submitted_by or "Project Manager",
+        "submitted_at": r.submitted_at.isoformat() if r.submitted_at else None
+    } for r in reports]
+
+@app.put("/reports/{report_id}/approve")
+def approve_report(report_id: int, db: Session = Depends(get_db)):
+    r = db.query(Report).filter(Report.id == report_id).first()
+    if not r: raise HTTPException(404, "Report not found")
+    r.status = "Approved"
+    _log_activity(db, "Administrator", "Approved Final Report", "Reports", r.report_id, r.title)
+    db.commit()
+    return {"status": r.status}
+
+@app.post("/reports/{report_id}/query")
+def raise_admin_query(report_id: int, data: dict, db: Session = Depends(get_db)):
+    r = db.query(Report).filter(Report.id == report_id).first()
+    if not r: raise HTTPException(404, "Report not found")
+    
+    r.status = "Query Raised"
+    
+    q = AdminQuery(
+        report_id=r.id,
+        query=data.get("query", ""),
+        action_requested=data.get("action_requested", ""),
+        document_name=r.title
+    )
+    db.add(q)
+    _log_activity(db, "Administrator", "Raised Query on Report", "Reports", r.report_id, data.get("query", ""))
+    db.commit()
+    return {"status": r.status}
 
 # ──────────────────────────────────────────────
 # CHECK DATA
@@ -549,7 +720,9 @@ def get_report(report_id: int, db: Session = Depends(get_db)):
     return {"id":r.id,"report_id":r.report_id,"title":r.title,"report_type":r.report_type,
             "year":r.year,"subsidiary":r.subsidiary,"mine":r.mine,
             "created_by":r.created_by,"created_at":r.created_at.isoformat() if r.created_at else "",
-            "status":r.status,"source_count":r.source_count,"content":content}
+            "status":r.status,"source_count":r.source_count,"content":content,
+            "submitted_by": r.submitted_by,
+            "submitted_at": r.submitted_at.isoformat() if r.submitted_at else None}
 
 @app.get("/reports/{report_id}/export/{fmt}")
 def export_report(report_id: int, fmt: str, db: Session = Depends(get_db)):

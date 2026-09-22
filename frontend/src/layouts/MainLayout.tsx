@@ -34,7 +34,7 @@ const MainLayout: React.FC = () => {
     navigate('/login');
   };
 
-  const menuItems = [
+  const baseMenuItems = [
     { name: 'Dashboard', path: '/', icon: <LayoutDashboard size={20} /> },
     { name: 'Documents', path: '/documents', icon: <Files size={20} /> },
     { name: 'Check Data', path: '/check-data', icon: <CheckCircle size={20} /> },
@@ -48,8 +48,39 @@ const MainLayout: React.FC = () => {
     { name: 'Analytics', path: '/analytics', icon: <PieChart size={20} /> },
     { name: 'Activity History', path: '/activity', icon: <History size={20} /> },
     { name: 'Users', path: '/users', icon: <Users size={20} />, adminOnly: true },
-    { name: 'Settings', path: '/settings', icon: <Settings size={20} /> },
   ];
+
+  let menuItems = baseMenuItems;
+  if (user && user.role === 'Supervisor') {
+    menuItems = [
+      { name: 'Dashboard', path: '/', icon: <LayoutDashboard size={20} /> },
+      { name: 'Documents', path: '/documents', icon: <Files size={20} /> },
+      { name: 'Submissions', path: '/#submissions', icon: <CheckCircle size={20} /> },
+      { name: 'Queries', path: '/#queries', icon: <MessageSquare size={20} /> },
+      { name: 'Notifications', path: '/#notifications', icon: <AlertTriangle size={20} /> },
+    ];
+  } else if (user && user.role === 'Administrator') {
+    menuItems = [
+      { name: 'Dashboard', path: '/', icon: <LayoutDashboard size={20} /> },
+      { name: 'Reports Awaiting Review', path: '/#awaiting', icon: <CheckCircle size={20} /> },
+      { name: 'Report Analysis', path: '/analytics', icon: <PieChart size={20} /> },
+      { name: 'Word Cloud', path: '/wordcloud', icon: <Cloud size={20} /> },
+      { name: 'Topics', path: '/topics', icon: <Hash size={20} /> },
+      { name: 'Queries', path: '/#queries', icon: <MessageSquare size={20} /> },
+      { name: 'Final Reports', path: '/reports', icon: <BarChart2 size={20} /> },
+      { name: 'Notifications', path: '/#notifications', icon: <AlertTriangle size={20} /> },
+    ];
+  } else if (user && user.role === 'Project Manager') {
+    menuItems = [
+      { name: 'Dashboard', path: '/', icon: <LayoutDashboard size={20} /> },
+      { name: 'Incoming Submissions', path: '/#incoming', icon: <Files size={20} /> },
+      { name: 'Documents', path: '/documents', icon: <Files size={20} /> },
+      { name: 'Data Validation', path: '/#validation', icon: <CheckCircle size={20} /> },
+      { name: 'Reports', path: '/reports', icon: <BarChart2 size={20} /> },
+      { name: 'Queries', path: '/#queries', icon: <MessageSquare size={20} /> },
+      { name: 'Notifications', path: '/#notifications', icon: <AlertTriangle size={20} /> },
+    ];
+  }
 
   return (
     <div className="flex h-screen bg-gray-50 font-sans">
@@ -62,15 +93,30 @@ const MainLayout: React.FC = () => {
         <nav className="flex-1 overflow-y-auto py-4">
           <ul className="space-y-1">
             {menuItems.map((item) => {
-              if (item.adminOnly && user.role !== 'Admin') return null;
+              if (item.adminOnly && user.role !== 'Administrator') return null;
+
               
-              const isActive = location.pathname === item.path;
+              const isActive = location.pathname === item.path && (item.path !== '/' || location.hash === item.path.replace('/', ''));
+              // Fallback active state for hash links
+              const isHashActive = location.hash === item.path.replace('/', '');
+              const actuallyActive = isActive || isHashActive;
+
               return (
                 <li key={item.name}>
                   <button
-                    onClick={() => navigate(item.path)}
+                    onClick={() => {
+                      if (item.path.includes('#')) {
+                        navigate('/');
+                        setTimeout(() => {
+                          const element = document.getElementById(item.path.split('#')[1]);
+                          if (element) element.scrollIntoView({ behavior: 'smooth' });
+                        }, 100);
+                      } else {
+                        navigate(item.path);
+                      }
+                    }}
                     className={`w-full flex items-center px-4 py-2 text-sm font-medium ${
-                      isActive 
+                      actuallyActive 
                         ? 'bg-blue-50 text-blue-700 border-r-4 border-blue-700' 
                         : 'text-gray-700 hover:bg-gray-100'
                     }`}
