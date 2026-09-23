@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import axios from 'axios';
-import { Search, FileText, Database, Tag, ArrowRight, Building2, Calendar } from 'lucide-react';
+import { Search, FileText, Database, Tag, ArrowRight, Building2, Calendar, CheckCircle2, Download, ExternalLink, ShieldCheck } from 'lucide-react';
 
 const API = import.meta.env.VITE_API_URL || 'http://localhost:8000';
 
@@ -31,10 +31,11 @@ const SmartSearch: React.FC = () => {
 
   const sampleQueries = [
     'MCL coal production 2024',
-    'Safety inspection',
-    'Overburden removal SECL',
-    'Environmental clearance',
-    'Target achievement'
+    'Detailed Exploration Jharkhand',
+    'Fumigator Environment',
+    'GEM/2026/B/8003373 Stationery',
+    'Seismograph CMPDI',
+    'Safety inspection'
   ];
 
   return (
@@ -166,29 +167,95 @@ const SmartSearch: React.FC = () => {
                 Matching Documents ({results.documents.length})
               </h2>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {results.documents.map((doc: any) => (
-                  <div key={doc.id} className="p-4 rounded-lg border border-gray-200 hover:border-blue-300 hover:bg-blue-50/30 transition">
-                    <div className="flex justify-between items-start">
-                      <span className="text-xs font-mono bg-blue-100 text-blue-800 px-2 py-0.5 rounded">
-                        {doc.doc_id}
-                      </span>
-                      <span className="text-xs text-gray-500 flex items-center">
-                        <Calendar size={12} className="mr-1" /> {doc.year}
-                      </span>
+                {results.documents.map((doc: any) => {
+                  const isVerifiedDoc = Boolean(doc.is_official_raw_download);
+                  return (
+                    <div key={doc.id} className="p-4 rounded-lg border border-gray-200 hover:border-blue-300 hover:bg-blue-50/20 transition flex flex-col justify-between">
+                      <div>
+                        <div className="flex flex-wrap items-center justify-between gap-2 mb-2">
+                          <span className="text-xs font-mono bg-gray-100 text-gray-800 px-2 py-0.5 rounded font-semibold">
+                            {doc.doc_id}
+                          </span>
+                          
+                          {/* MANDATORY VERIFICATION BADGES */}
+                          {isVerifiedDoc ? (
+                            <span className="px-2 py-0.5 text-xs font-bold rounded-md bg-emerald-100 text-emerald-800 border border-emerald-300 flex items-center gap-1 shadow-xs">
+                              <CheckCircle2 size={12} className="text-emerald-700" /> [VERIFIED OFFICIAL DOCUMENT]
+                            </span>
+                          ) : (
+                            <span className="px-2 py-0.5 text-xs font-semibold rounded-md bg-blue-100 text-blue-800 border border-blue-200 flex items-center gap-1">
+                              <ShieldCheck size={12} className="text-blue-600" /> [VERIFIED OFFICIAL LISTING]
+                            </span>
+                          )}
+
+                          <span className="text-xs text-gray-500 flex items-center">
+                            <Calendar size={12} className="mr-1" /> {doc.year || 'N/A'}
+                          </span>
+                        </div>
+
+                        <h3 className="font-semibold text-gray-900 text-base line-clamp-2 leading-snug">{doc.name}</h3>
+                        
+                        {doc.document_number && (
+                          <div className="mt-1.5 text-xs font-mono text-gray-700 bg-gray-50 px-2 py-1 rounded border border-gray-150">
+                            Tender No: <span className="font-semibold text-gray-900">{doc.document_number}</span>
+                          </div>
+                        )}
+
+                        <div className="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-xs text-gray-600">
+                          <span className="font-medium text-gray-700">{doc.doc_type}</span>
+                          {doc.department && doc.department !== 'Operations' && (
+                            <span className="text-gray-500">• {doc.department}</span>
+                          )}
+                          {doc.pages && (
+                            <span className="text-gray-500 font-mono">• {doc.pages} pages</span>
+                          )}
+                        </div>
+
+                        {doc.data_provenance && (
+                          <p className="text-[11px] text-gray-400 mt-2 italic leading-tight">
+                            Provenance: {doc.data_provenance}
+                          </p>
+                        )}
+                      </div>
+
+                      <div className="mt-4 flex items-center justify-between text-xs pt-3 border-t border-gray-100">
+                        <span className="flex items-center font-medium text-gray-600">
+                          <Building2 size={13} className="mr-1 text-gray-400" />
+                          {doc.subsidiary} {doc.mine ? `• ${doc.mine}` : ''}
+                        </span>
+
+                        <div className="flex items-center space-x-2">
+                          {/* Real verified PDF download ONLY - Never show fake download */}
+                          {isVerifiedDoc ? (
+                            <a
+                              href={`${API}/documents/${doc.id}/download`}
+                              target="_blank"
+                              rel="noreferrer"
+                              download
+                              className="px-2.5 py-1 bg-emerald-700 hover:bg-emerald-800 text-white rounded font-medium flex items-center text-xs shadow-xs transition"
+                              title="Download verified official original PDF"
+                            >
+                              <Download size={12} className="mr-1" /> Download PDF
+                            </a>
+                          ) : (
+                            <a
+                              href={doc.source_page || "https://www.cmpdi.co.in/en/tenders/archived-tenders"}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="text-blue-700 hover:text-blue-900 font-medium flex items-center text-xs"
+                              title="View official CMPDI archived tenders portal"
+                            >
+                              Official Portal <ExternalLink size={11} className="ml-1" />
+                            </a>
+                          )}
+                          <a href={`/documents`} className="text-gray-500 hover:text-gray-700 flex items-center ml-1">
+                            <ArrowRight size={13} />
+                          </a>
+                        </div>
+                      </div>
                     </div>
-                    <h3 className="font-semibold text-gray-900 mt-2 text-base">{doc.name}</h3>
-                    <p className="text-xs text-gray-500 mt-1">{doc.doc_type}</p>
-                    <div className="mt-3 flex items-center justify-between text-xs text-gray-600 pt-2 border-t border-gray-100">
-                      <span className="flex items-center font-medium">
-                        <Building2 size={13} className="mr-1 text-gray-400" />
-                        {doc.subsidiary} {doc.mine ? `• ${doc.mine}` : ''}
-                      </span>
-                      <a href={`/documents`} className="text-blue-600 hover:underline flex items-center">
-                        View document <ArrowRight size={12} className="ml-1" />
-                      </a>
-                    </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             </div>
           )}

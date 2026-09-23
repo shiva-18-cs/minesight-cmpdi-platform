@@ -1,8 +1,12 @@
 """
-MineSight - Seed Data Script
-Populates the SQLite database with comprehensive mock data.
-Running this script again will reset and re-seed all data (idempotent).
+=============================================================================
+WARNING: DEMO / PROTOTYPE SYNTHETIC DATA GENERATOR ONLY
+DO NOT RUN IN PRODUCTION OR REAL DATA ENVIRONMENTS.
+This script populates the database with artificial/mock data.
+For real data environments, use scripts/ingest_real_data.py or the UI upload.
+=============================================================================
 """
+
 import os, sys, json, random
 from datetime import datetime, timedelta
 

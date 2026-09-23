@@ -1,4 +1,5 @@
 import React, { useEffect, useState, useCallback } from 'react';
+import { useLocation } from 'react-router-dom';
 import axios from 'axios';
 import { 
   BarChart2, 
@@ -8,13 +9,13 @@ import {
   CheckCircle, 
   Calendar, 
   Building2, 
-  X,
-  ExternalLink,
-  ChevronRight,
-  Send,
-  User,
-  Clock,
-  AlertCircle
+  X, 
+  ExternalLink, 
+  ChevronRight, 
+  Send, 
+  User, 
+  Clock, 
+  AlertCircle 
 } from 'lucide-react';
 
 const API = import.meta.env.VITE_API_URL || 'http://localhost:8000';
@@ -76,6 +77,7 @@ const Toast: React.FC<ToastProps> = ({ message, type, onClose }) => {
 
 // ─── Main Reports Component ──────────────────────────────────────────────────
 const Reports: React.FC = () => {
+  const location = useLocation();
   const [reports, setReports] = useState<ReportSummary[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedReport, setSelectedReport] = useState<any>(null);
@@ -102,13 +104,16 @@ const Reports: React.FC = () => {
 
   useEffect(() => {
     fetchReports();
-  }, []);
+  }, [location.state]);
 
   const fetchReports = async () => {
     try {
       const res = await axios.get(`${API}/reports`);
       setReports(res.data);
-      if (res.data.length > 0 && !selectedReport) {
+      const targetId = location.state?.reportId;
+      if (targetId) {
+        viewReport(targetId);
+      } else if (res.data.length > 0 && !selectedReport) {
         viewReport(res.data[0].id);
       }
     } catch (err) {
@@ -118,7 +123,7 @@ const Reports: React.FC = () => {
     }
   };
 
-  const viewReport = async (id: number) => {
+  const viewReport = async (id: number | string) => {
     try {
       const res = await axios.get(`${API}/reports/${id}`);
       setSelectedReport(res.data);

@@ -3,7 +3,7 @@ import json
 
 def test():
     base_api = "http://127.0.0.1:8000"
-    base_fe = "http://127.0.0.1:5173"
+    base_fe = "http://localhost:5173"
 
     print("--- TESTING BACKEND HEALTH ---")
     with urllib.request.urlopen(f"{base_api}/") as res:
@@ -47,7 +47,10 @@ def test():
     print("\n--- TESTING TOPICS ---")
     with urllib.request.urlopen(f"{base_api}/topics") as res:
         topics = json.loads(res.read())
-        print(f"Topics returned {len(topics)} topics. First: {topics[0]['name']}")
+        if topics:
+            print(f"Topics returned {len(topics)} topics. First: {topics[0]['name']}")
+        else:
+            print(f"Topics returned {len(topics)} topics (clean state)")
 
     print("\n--- TESTING REPORTS & EXPORT ---")
     with urllib.request.urlopen(f"{base_api}/reports") as res:

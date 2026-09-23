@@ -43,9 +43,20 @@ class Document(Base):
     upload_date = Column(DateTime, default=datetime.utcnow)
     uploaded_by = Column(String)
     status = Column(String, default="Pending")
-    reading_accuracy = Column(Float, default=0.0)
-    pages = Column(Integer, default=1)
+    reading_accuracy = Column(Float, nullable=True)
+    pages = Column(Integer, nullable=True)
     file_type = Column(String, default="PDF")
+    file_path = Column(String, nullable=True)
+    file_checksum = Column(String, nullable=True)
+    source_org = Column(String, nullable=True)
+    source_url = Column(String, nullable=True)
+    source_page = Column(String, nullable=True)
+    document_number = Column(String, nullable=True)
+    reporting_period = Column(String, nullable=True)
+    is_official_raw_download = Column(Boolean, default=False)
+    verification_status = Column(String, nullable=True)
+    data_provenance = Column(String, nullable=True)
+    ingestion_timestamp = Column(DateTime, nullable=True)
 
 
 class DocumentText(Base):
@@ -62,23 +73,51 @@ class ExtractedInformation(Base):
     document_id = Column(Integer, ForeignKey("documents.id"))
     field = Column(String)
     value = Column(String)
+    original_value = Column(String, nullable=True)
+    original_unit = Column(String, nullable=True)
     numeric_value = Column(Float, nullable=True)
+    normalized_value = Column(Float, nullable=True)
+    normalized_unit = Column(String, nullable=True)
     unit = Column(String)
     source_page = Column(String)
     status = Column(String, default="Correct")
     year = Column(Integer, nullable=True)
     subsidiary = Column(String, nullable=True)
     mine = Column(String, nullable=True)
+    data_quality_flag = Column(String, nullable=True)
+    ingestion_timestamp = Column(DateTime, nullable=True)
+
+
+class DataSource(Base):
+    __tablename__ = "data_sources"
+    id = Column(Integer, primary_key=True, index=True)
+    document_id = Column(Integer, ForeignKey("documents.id"), nullable=True)
+    source_name = Column(String)
+    source_org = Column(String, nullable=True)
+    source_url = Column(String, nullable=True)
+    source_page = Column(String, nullable=True)
+    source_type = Column(String, nullable=True)
+    document_number = Column(String, nullable=True)
+    publication_year = Column(Integer, nullable=True)
+    reporting_period = Column(String, nullable=True)
+    original_filename = Column(String, nullable=True)
+    file_checksum = Column(String, nullable=True)
+    is_official_raw_download = Column(Boolean, default=False)
+    verification_status = Column(String, nullable=True)
+    data_provenance = Column(String, nullable=True)
+    ingestion_timestamp = Column(DateTime, default=datetime.utcnow)
+    ingested_by = Column(String, nullable=True)
+    notes = Column(Text, nullable=True)
 
 
 class DataCheck(Base):
     __tablename__ = "data_checks"
     id = Column(Integer, primary_key=True, index=True)
-    info_id = Column(Integer, ForeignKey("extracted_information.id"))
+    info_id = Column(Integer, ForeignKey("extracted_information.id"), nullable=True)
     check_type = Column(String)
     status = Column(String)
     message = Column(String)
-    document_id = Column(Integer, ForeignKey("documents.id"))
+    document_id = Column(Integer, ForeignKey("documents.id"), nullable=True)
 
 
 class Difference(Base):
@@ -98,6 +137,7 @@ class Difference(Base):
     page_b = Column(String, default="")
     year = Column(Integer, nullable=True)
     subsidiary = Column(String, nullable=True)
+    mine = Column(String, nullable=True)
     priority = Column(String, default="Medium")
     status = Column(String, default="Needs Review")
     resolution = Column(String, nullable=True)
@@ -115,6 +155,7 @@ class Topic(Base):
     keywords = Column(String, default="")
     related_subsidiaries = Column(String, default="")
     related_mines = Column(String, default="")
+    computed_at = Column(DateTime, nullable=True)
 
 
 class Report(Base):
@@ -167,6 +208,7 @@ class ActivityHistory(Base):
     status = Column(String, default="Completed")
     details = Column(String, default="")
 
+
 class AdminQuery(Base):
     __tablename__ = "admin_queries"
     id = Column(Integer, primary_key=True, index=True)
@@ -177,3 +219,37 @@ class AdminQuery(Base):
     document_name = Column(String)
     date = Column(DateTime, default=datetime.utcnow)
     status = Column(String, default="Open")
+    response = Column(Text, nullable=True)
+    resolved_by = Column(String, nullable=True)
+    resolved_at = Column(DateTime, nullable=True)
+    ai_draft_answer = Column(Text, nullable=True)
+
+
+class SupervisorQuery(Base):
+    __tablename__ = "supervisor_queries"
+    id = Column(Integer, primary_key=True, index=True)
+    query = Column(String)
+    source = Column(String)
+    document_name = Column(String, nullable=True)
+    document_id = Column(Integer, ForeignKey("documents.id"), nullable=True)
+    date = Column(DateTime, default=datetime.utcnow)
+    status = Column(String, default="Open")
+    response = Column(Text, nullable=True)
+    responded_at = Column(DateTime, nullable=True)
+    raised_by = Column(String, nullable=True)
+    raised_by_role = Column(String, nullable=True)
+    ai_draft_answer = Column(Text, nullable=True)
+
+
+class Message(Base):
+    __tablename__ = "messages"
+    id = Column(Integer, primary_key=True, index=True)
+    sender_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
+    recipient_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
+    content = Column(Text, nullable=False)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    read_at = Column(DateTime, nullable=True)
+    is_read = Column(Boolean, default=False)
+
+    sender = relationship("User", foreign_keys=[sender_id], backref="sent_messages")
+    recipient = relationship("User", foreign_keys=[recipient_id], backref="received_messages")

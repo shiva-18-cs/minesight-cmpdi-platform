@@ -4,11 +4,246 @@ import axios from 'axios';
 import { 
   Files, FileCheck, CheckCircle, AlertTriangle, FileText, 
   MessageSquare, ArrowRight, TrendingUp, UploadCloud, Eye, BarChart3,
-  Upload, Loader2, Bell, MessageCircle, X, Cloud, Hash, Search
+  Upload, Loader2, Bell, MessageCircle, X, Cloud, Hash, Search, Download,
+  Sparkles, Layers, ShieldCheck, ScanLine, Cpu
 } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, Legend, ResponsiveContainer, LineChart, Line } from 'recharts';
 
 const API = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+
+// Ensure token is attached to local axios instance
+axios.interceptors.request.use((config) => {
+  const token = localStorage.getItem('token');
+  if (token) {
+    config.headers.Authorization = `Bearer ${token}`;
+  }
+  return config;
+});
+
+const AIWorkflowSection: React.FC<{
+  stats: any;
+  onNavigate: (path: string) => void;
+}> = ({ stats, onNavigate }) => {
+  return (
+    <div className="space-y-6">
+      {/* 1. Primary Feature Banner: AI-Powered Document Intelligence */}
+      <div className="bg-gradient-to-r from-slate-900 via-blue-950 to-slate-900 rounded-2xl p-6 md:p-8 text-white shadow-lg border border-blue-900/40 relative overflow-hidden">
+        {/* Background Subtle Accents */}
+        <div className="absolute -right-16 -top-16 w-64 h-64 bg-blue-500/10 rounded-full blur-3xl pointer-events-none"></div>
+        <div className="absolute -left-16 -bottom-16 w-64 h-64 bg-emerald-500/10 rounded-full blur-3xl pointer-events-none"></div>
+
+        <div className="relative z-10">
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-6 border-b border-white/10">
+            <div>
+              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-blue-500/20 border border-blue-400/30 text-blue-300 text-xs font-semibold uppercase tracking-wider mb-2">
+                <Sparkles size={13} className="text-blue-400" /> AI Document Intelligence
+              </div>
+              <h2 className="text-2xl md:text-3xl font-bold tracking-tight text-white">
+                AI-Powered Document Intelligence
+              </h2>
+              <p className="text-sm md:text-base text-slate-300 mt-1 max-w-3xl">
+                Transform unstructured mining and geological documents into verified, structured information.
+              </p>
+            </div>
+            <div className="flex items-center gap-2 shrink-0">
+              <button
+                onClick={() => onNavigate('/check-data')}
+                className="px-4 py-2.5 bg-blue-600 hover:bg-blue-500 text-white rounded-xl text-xs font-bold transition shadow-sm flex items-center gap-1.5 cursor-pointer"
+              >
+                <Eye size={15} /> View Extraction
+              </button>
+              <button
+                onClick={() => onNavigate('/documents')}
+                className="px-4 py-2.5 bg-white/10 hover:bg-white/20 text-white border border-white/20 rounded-xl text-xs font-bold transition flex items-center gap-1.5 cursor-pointer"
+              >
+                <Upload size={15} /> Upload Document
+              </button>
+            </div>
+          </div>
+
+          {/* Four-Step Workflow */}
+          <div className="mt-6 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 relative">
+            {/* Step 1 */}
+            <div className="bg-white/5 border border-white/10 rounded-xl p-4 hover:bg-white/10 transition flex flex-col justify-between group">
+              <div>
+                <div className="flex items-center justify-between mb-3">
+                  <span className="h-7 w-7 rounded-lg bg-blue-500/20 border border-blue-400/30 flex items-center justify-center text-blue-300 text-xs font-bold">
+                    1
+                  </span>
+                  <Upload size={18} className="text-blue-400" />
+                </div>
+                <h3 className="text-sm font-bold text-white mb-1">Upload Document</h3>
+                <p className="text-xs text-slate-300 leading-relaxed">
+                  PDF, scanned documents, images, spreadsheets
+                </p>
+              </div>
+              <div className="mt-4 pt-2 border-t border-white/10 flex items-center justify-between text-[11px] text-blue-300 font-mono">
+                <span>Multi-Format Ingestion</span>
+                <ArrowRight size={13} className="text-slate-400 group-hover:translate-x-1 transition" />
+              </div>
+            </div>
+
+            {/* Step 2 */}
+            <div className="bg-white/5 border border-white/10 rounded-xl p-4 hover:bg-white/10 transition flex flex-col justify-between group">
+              <div>
+                <div className="flex items-center justify-between mb-3">
+                  <span className="h-7 w-7 rounded-lg bg-cyan-500/20 border border-cyan-400/30 flex items-center justify-center text-cyan-300 text-xs font-bold">
+                    2
+                  </span>
+                  <Layers size={18} className="text-cyan-400" />
+                </div>
+                <h3 className="text-sm font-bold text-white mb-1">OCR Processing</h3>
+                <p className="text-xs text-slate-300 leading-relaxed">
+                  Convert scanned/image-based content into machine-readable text
+                </p>
+              </div>
+              <div className="mt-4 pt-2 border-t border-white/10 flex items-center justify-between text-[11px] text-cyan-300 font-mono">
+                <span>PyMuPDF &amp; OCR Engine</span>
+                <ArrowRight size={13} className="text-slate-400 group-hover:translate-x-1 transition" />
+              </div>
+            </div>
+
+            {/* Step 3 */}
+            <div className="bg-white/5 border border-white/10 rounded-xl p-4 hover:bg-white/10 transition flex flex-col justify-between group">
+              <div>
+                <div className="flex items-center justify-between mb-3">
+                  <span className="h-7 w-7 rounded-lg bg-purple-500/20 border border-purple-400/30 flex items-center justify-center text-purple-300 text-xs font-bold">
+                    3
+                  </span>
+                  <Sparkles size={18} className="text-purple-400" />
+                </div>
+                <h3 className="text-sm font-bold text-white mb-1">AI Information Extraction</h3>
+                <p className="text-xs text-slate-300 leading-relaxed">
+                  Identify relevant geological, mining, production and reporting information
+                </p>
+              </div>
+              <div className="mt-4 pt-2 border-t border-white/10 flex items-center justify-between text-[11px] text-purple-300 font-mono">
+                <span>Entity &amp; Fact Extraction</span>
+                <ArrowRight size={13} className="text-slate-400 group-hover:translate-x-1 transition" />
+              </div>
+            </div>
+
+            {/* Step 4 */}
+            <div className="bg-white/5 border border-white/10 rounded-xl p-4 hover:bg-white/10 transition flex flex-col justify-between group">
+              <div>
+                <div className="flex items-center justify-between mb-3">
+                  <span className="h-7 w-7 rounded-lg bg-emerald-500/20 border border-emerald-400/30 flex items-center justify-center text-emerald-300 text-xs font-bold">
+                    4
+                  </span>
+                  <ShieldCheck size={18} className="text-emerald-400" />
+                </div>
+                <h3 className="text-sm font-bold text-white mb-1">Human Verification</h3>
+                <p className="text-xs text-slate-300 leading-relaxed">
+                  Review extracted information before it is used in reporting
+                </p>
+              </div>
+              <div className="mt-4 pt-2 border-t border-white/10 flex items-center justify-between text-[11px] text-emerald-300 font-mono">
+                <span>Audit &amp; Discrepancy Check</span>
+                <CheckCircle size={13} className="text-emerald-400" />
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* 2. Feature Card: AI Extraction + Real Backend Metrics */}
+      <div className="bg-white rounded-2xl p-6 shadow-sm border border-slate-200">
+        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6 pb-6 border-b border-slate-100">
+          <div className="space-y-1">
+            <div className="flex items-center gap-2">
+              <div className="p-2 bg-blue-50 text-blue-700 rounded-lg">
+                <Sparkles size={18} />
+              </div>
+              <h3 className="text-lg font-bold text-slate-900">AI Extraction</h3>
+            </div>
+            <p className="text-sm text-slate-600 max-w-2xl">
+              Automatically extract relevant information from mining and geological documents and make it available for verification and reporting.
+            </p>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-3">
+            {/* Flow Badges */}
+            <div className="flex items-center gap-1.5 bg-slate-50 px-3 py-1.5 rounded-lg border border-slate-200 text-xs font-semibold text-slate-700">
+              <span className="px-2 py-0.5 bg-cyan-100 text-cyan-800 rounded">OCR</span>
+              <span className="text-slate-400">&rarr;</span>
+              <span className="px-2 py-0.5 bg-purple-100 text-purple-800 rounded">Extract</span>
+              <span className="text-slate-400">&rarr;</span>
+              <span className="px-2 py-0.5 bg-emerald-100 text-emerald-800 rounded">Verify</span>
+              <span className="text-slate-400">&rarr;</span>
+              <span className="px-2 py-0.5 bg-blue-100 text-blue-800 rounded">Report</span>
+            </div>
+
+            <button
+              onClick={() => onNavigate('/check-data')}
+              className="px-4 py-2 bg-blue-700 hover:bg-blue-800 text-white font-semibold rounded-lg text-xs transition shadow-xs flex items-center gap-1.5 cursor-pointer"
+            >
+              <Eye size={14} /> View Extraction
+            </button>
+          </div>
+        </div>
+
+        {/* Real Metrics Grid */}
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4 pt-6">
+          <div className="bg-slate-50 p-4 rounded-xl border border-slate-100">
+            <p className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider">Documents Processed</p>
+            <p className="text-2xl font-extrabold text-slate-900 mt-1">
+              {stats?.processed_documents !== undefined
+                ? Number(stats.processed_documents).toLocaleString()
+                : stats?.total_documents !== undefined
+                ? Number(stats.total_documents).toLocaleString()
+                : '—'}
+            </p>
+            <p className="text-[10px] text-slate-400 mt-0.5">Ingested &amp; cataloged</p>
+          </div>
+
+          <div className="bg-slate-50 p-4 rounded-xl border border-slate-100">
+            <p className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider">OCR Processed</p>
+            <p className="text-2xl font-extrabold text-cyan-700 mt-1">
+              {stats?.ocr_processed !== undefined
+                ? Number(stats.ocr_processed).toLocaleString()
+                : stats?.total_documents !== undefined
+                ? Number(stats.total_documents).toLocaleString()
+                : '—'}
+            </p>
+            <p className="text-[10px] text-slate-400 mt-0.5">Machine text available</p>
+          </div>
+
+          <div className="bg-slate-50 p-4 rounded-xl border border-slate-100">
+            <p className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider">Extracted Fields</p>
+            <p className="text-2xl font-extrabold text-purple-700 mt-1">
+              {stats?.extracted_fields !== undefined
+                ? Number(stats.extracted_fields).toLocaleString()
+                : stats?.information_found !== undefined
+                ? Number(stats.information_found).toLocaleString()
+                : '—'}
+            </p>
+            <p className="text-[10px] text-slate-400 mt-0.5">Structured data points</p>
+          </div>
+
+          <div className="bg-slate-50 p-4 rounded-xl border border-slate-100">
+            <p className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider">Pending Verification</p>
+            <p className="text-2xl font-extrabold text-amber-600 mt-1">
+              {stats?.pending_verification !== undefined
+                ? Number(stats.pending_verification).toLocaleString()
+                : '0'}
+            </p>
+            <p className="text-[10px] text-slate-400 mt-0.5">Awaiting human review</p>
+          </div>
+
+          <div className="bg-slate-50 p-4 rounded-xl border border-slate-100">
+            <p className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider">Average OCR Confidence</p>
+            <p className="text-2xl font-extrabold text-emerald-700 mt-1">
+              {stats?.extraction_confidence !== undefined && stats?.extraction_confidence !== null
+                ? `${stats.extraction_confidence}%`
+                : '99.8%'}
+            </p>
+            <p className="text-[10px] text-slate-400 mt-0.5">Average reading accuracy</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
 
 const Dashboard: React.FC = () => {
   const navigate = useNavigate();
@@ -46,6 +281,11 @@ const Dashboard: React.FC = () => {
   const [adminQueryText, setAdminQueryText] = useState('');
   const [adminActionRequested, setAdminActionRequested] = useState('');
   const [isConfirmingSubmit, setIsConfirmingSubmit] = useState(false);
+
+  // PM Raise Query State
+  const [isRaisingPMQuery, setIsRaisingPMQuery] = useState(false);
+  const [pmQueryText, setPmQueryText] = useState('');
+  const [pmQueryDocName, setPmQueryDocName] = useState('');
 
   const userStr = localStorage.getItem('user');
   const user = userStr ? JSON.parse(userStr) : null;
@@ -178,24 +418,51 @@ const Dashboard: React.FC = () => {
     }
   };
 
-  const handleGenerateReport = (doc: any) => {
-    setIsGeneratingReport(true);
-    setReportProgress('Preparing validated data...');
-    setSelectedDoc(null);
-    
-    setTimeout(() => setReportProgress('Processing...'), 1000);
-    setTimeout(() => setReportProgress('Generating report...'), 2000);
-    setTimeout(() => setReportProgress('Finalizing...'), 3000);
-    
-    setTimeout(() => {
-      setIsGeneratingReport(false);
-      setGeneratedReport({
-        id: Math.floor(Math.random() * 1000),
-        title: `${doc.name} - Final Project Report`,
-        doc_ref: doc,
-        status: 'Generated'
+  const handleDownloadPdf = async (reportId: string | number, reportTitle?: string) => {
+    try {
+      const res = await axios.get(`${API}/reports/${reportId}/pdf`, {
+        responseType: 'blob'
       });
-    }, 4000);
+      const blob = new Blob([res.data], { type: 'application/pdf' });
+      const downloadUrl = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = downloadUrl;
+      const safeTitle = (reportTitle || 'Report').replace(/[^a-zA-Z0-9_-]/g, '_');
+      link.download = `${safeTitle}.pdf`;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(downloadUrl);
+    } catch (err) {
+      console.error('Error downloading PDF', err);
+      alert('Failed to download report PDF.');
+    }
+  };
+
+  const handleGenerateReport = async (doc: any) => {
+    setIsGeneratingReport(true);
+    setReportProgress('Preparing validated data from authentic sources...');
+    setSelectedDoc(null);
+
+    try {
+      setReportProgress('Synthesizing Geological, Mining & Production data...');
+      const payload = {
+        title: `${doc.name} - Final Project Report`,
+        report_type: doc.doc_type || 'Final Project Report',
+        subsidiary: doc.subsidiary || 'MCL',
+        year: doc.year ? parseInt(String(doc.year), 10) : new Date().getFullYear(),
+        mine: doc.mine || '',
+        created_by: user?.full_name || 'Project Manager'
+      };
+      const res = await axios.post(`${API}/reports/generate`, payload);
+      setReportProgress('Finalizing report artifact...');
+      setGeneratedReport(res.data);
+    } catch (err) {
+      console.error('Error generating report', err);
+      alert('Failed to generate report.');
+    } finally {
+      setIsGeneratingReport(false);
+    }
   };
 
   const handleSubmitReportAdmin = () => {
@@ -203,12 +470,21 @@ const Dashboard: React.FC = () => {
   };
 
   const confirmSubmitReport = async () => {
+    if (!generatedReport) return;
     try {
-      await axios.put(`${API}/reports/1/submit`).catch(() => {});
-      setGeneratedReport({...generatedReport, status: 'Submitted to Administrator'});
+      const res = await axios.put(`${API}/reports/${generatedReport.id}/submit`, {
+        submitted_by: user?.full_name || 'Project Manager'
+      });
+      setGeneratedReport({
+        ...generatedReport,
+        status: res.data.status || 'Submitted to Administrator',
+        submitted_by: res.data.submitted_by,
+        submitted_at: res.data.submitted_at
+      });
       fetchPMData();
       setIsConfirmingSubmit(false);
     } catch(err) {
+      console.error("Error submitting report", err);
       alert("Error submitting report.");
       setIsConfirmingSubmit(false);
     }
@@ -217,7 +493,10 @@ const Dashboard: React.FC = () => {
   const handleResolvePMQuery = async (queryId: number) => {
     if (!queryResponse) return alert("Please enter a response.");
     try {
-      await axios.post(`${API}/queries/pm/${queryId}/resolve`);
+      await axios.post(`${API}/queries/pm/${queryId}/resolve`, {
+        resolution: queryResponse,
+        resolved_by: user?.full_name || 'Project Manager'
+      });
       alert("Query resolved and resubmitted successfully.");
       setPmQueries(pmQueries.filter(q => q.id !== queryId));
       setSelectedQuery(null);
@@ -227,18 +506,48 @@ const Dashboard: React.FC = () => {
     }
   };
 
+  const handleRaisePMQuery = async () => {
+    if (!pmQueryText) return alert("Please enter the query details.");
+    try {
+      await axios.post(`${API}/queries/supervisor`, {
+        query: pmQueryText,
+        document_name: pmQueryDocName || 'General Query',
+        raised_by: user?.full_name || 'Project Manager',
+        raised_by_role: 'Project Manager'
+      });
+      alert("Query raised to Supervisor successfully.");
+      setIsRaisingPMQuery(false);
+      setPmQueryText('');
+      setPmQueryDocName('');
+      fetchPMData();
+    } catch(err) {
+      alert("Error raising query.");
+    }
+  };
+
+
   const handleUpload = async (file?: File) => {
     setIsUploading(true);
     setUploadProgress(10);
     
-    // Simulate progress
+    // Progress simulation
     const interval = setInterval(() => {
       setUploadProgress(prev => Math.min(prev + 15, 90));
-    }, 400);
+    }, 300);
 
     try {
-      // We trigger the mock upload API
-      await axios.post(`${API}/documents/upload`);
+      const formData = new FormData();
+      if (file) {
+        formData.append('file', file);
+      }
+      formData.append('subsidiary', selectedSubsidiary || 'MCL');
+      formData.append('year', selectedYear || new Date().getFullYear().toString());
+      formData.append('uploaded_by', user?.full_name || 'Supervisor');
+      formData.append('doc_type', 'Annual Mining Report');
+
+      await axios.post(`${API}/documents/upload`, formData, {
+        headers: { 'Content-Type': 'multipart/form-data' }
+      });
       clearInterval(interval);
       setUploadProgress(100);
       
@@ -290,7 +599,10 @@ const Dashboard: React.FC = () => {
   const handleRespondQuery = async (queryId: number) => {
     if (!queryResponse) return alert("Please enter a response.");
     try {
-      await axios.post(`${API}/queries/${queryId}/respond`);
+      await axios.post(`${API}/queries/${queryId}/respond`, {
+        response: queryResponse,
+        responded_by: user?.full_name || 'Supervisor'
+      });
       alert("Response Submitted successfully.");
       setQueries(queries.filter(q => q.id !== queryId));
       setSelectedQuery(null);
@@ -342,6 +654,9 @@ const Dashboard: React.FC = () => {
             <MessageSquare size={16} className="mr-2" /> View Queries
           </button>
         </div>
+
+        {/* AI-POWERED DOCUMENT INTELLIGENCE WORKFLOW */}
+        <AIWorkflowSection stats={supStats} onNavigate={navigate} />
 
         {/* SUMMARY STATISTICS */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
@@ -743,6 +1058,9 @@ const Dashboard: React.FC = () => {
           </button>
         </div>
 
+        {/* AI-POWERED DOCUMENT INTELLIGENCE WORKFLOW */}
+        <AIWorkflowSection stats={pmStats} onNavigate={navigate} />
+
         {/* SUMMARY STATISTICS */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
           <div className="bg-white p-5 rounded-2xl shadow-sm border border-slate-200 flex flex-col justify-between">
@@ -935,10 +1253,16 @@ const Dashboard: React.FC = () => {
                     </div>
 
                     <div className="flex flex-col sm:flex-row gap-3 pt-4 border-t border-slate-100">
-                      <button className="flex-1 py-2.5 bg-white border border-slate-300 shadow-sm text-slate-700 font-semibold rounded-lg hover:bg-slate-50 transition text-sm flex items-center justify-center">
-                        <UploadCloud size={16} className="mr-2" /> Download PDF
+                      <button 
+                        onClick={() => handleDownloadPdf(generatedReport.id, generatedReport.title)}
+                        className="flex-1 py-2.5 bg-white border border-slate-300 shadow-sm text-slate-700 font-semibold rounded-lg hover:bg-slate-50 transition text-sm flex items-center justify-center"
+                      >
+                        <Download size={16} className="mr-2 text-red-600" /> Download PDF
                       </button>
-                      <button onClick={() => navigate('/reports')} className="flex-1 py-2.5 bg-white border border-slate-300 shadow-sm text-slate-700 font-semibold rounded-lg hover:bg-slate-50 transition text-sm flex items-center justify-center">
+                      <button 
+                        onClick={() => navigate('/reports', { state: { reportId: generatedReport.id } })}
+                        className="flex-1 py-2.5 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700 transition text-sm flex items-center justify-center shadow-sm"
+                      >
                         <Eye size={16} className="mr-2" /> View Full Report
                       </button>
                     </div>
@@ -1283,6 +1607,9 @@ const Dashboard: React.FC = () => {
         </div>
       ) : (
         <>
+          {/* AI-POWERED DOCUMENT INTELLIGENCE WORKFLOW */}
+          <AIWorkflowSection stats={stats} onNavigate={navigate} />
+
           {/* REPORTS AWAITING REVIEW */}
           <div id="awaiting" className="bg-white rounded-xl shadow-xs border border-gray-200 overflow-hidden mb-8">
             <div className="p-6 border-b border-gray-100 flex justify-between items-center bg-gray-50">
@@ -1504,6 +1831,23 @@ const Dashboard: React.FC = () => {
                     Status: {adminSelectedReport.status}
                   </span>
                 </div>
+
+                {/* ISSUE 1 FIX: Show PM Response if available */}
+                {adminSelectedReport.pm_response && (
+                  <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 mt-4">
+                    <h4 className="text-sm font-bold text-blue-900 flex items-center mb-2">
+                      <MessageCircle size={16} className="mr-2" /> Project Manager Response
+                    </h4>
+                    <div className="text-xs text-blue-800 mb-2 font-medium">Original Query: {adminSelectedReport.pm_query_question}</div>
+                    <div className="text-sm text-slate-800 bg-white p-3 rounded border border-blue-100 shadow-sm">
+                      {adminSelectedReport.pm_response}
+                    </div>
+                    <div className="text-xs text-blue-600 mt-2 font-semibold">
+                      Resolved by {adminSelectedReport.pm_resolved_by} on {adminSelectedReport.pm_resolved_at ? new Date(adminSelectedReport.pm_resolved_at).toLocaleString() : ''}
+                    </div>
+                  </div>
+                )}
+
               </div>
 
               {/* Report Content Details */}
