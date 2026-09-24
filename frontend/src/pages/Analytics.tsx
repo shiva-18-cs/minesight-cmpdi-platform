@@ -74,7 +74,7 @@ const Analytics: React.FC = () => {
         </div>
 
         <div className="text-xs text-gray-500">
-          Data synchronized across 87 historical documents & reports
+          Data synchronized across {data?.total_documents?.toLocaleString() ?? '...'} historical documents & reports
         </div>
       </div>
 

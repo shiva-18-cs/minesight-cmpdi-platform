@@ -1766,11 +1766,15 @@ def analytics(year: Optional[int] = None, subsidiary: Optional[str] = None, db: 
             resolved = q.filter(Difference.status == "Resolved").count()
             diff_stats.append({"year": yr, "total": total, "resolved": resolved})
 
+    # Total document count (unfiltered) for display
+    total_documents = db.query(Document).count()
+
     return {
         "production_trend": production_trend,
         "target_vs_actual": target_vs_actual,
         "document_stats": doc_stats,
-        "difference_stats": diff_stats
+        "difference_stats": diff_stats,
+        "total_documents": total_documents
     }
 
 # ──────────────────────────────────────────────
