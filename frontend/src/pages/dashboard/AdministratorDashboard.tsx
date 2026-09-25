@@ -305,7 +305,15 @@ const AdministratorDashboard: React.FC<{ user: any }> = ({ user }) => {
                     {report.submitted_at && <div className="text-xs text-gray-400 mt-0.5">{new Date(report.submitted_at).toLocaleString()}</div>}
                   </td>
                   <td className="px-6 py-4">
-                    <span className="px-3 py-1 bg-yellow-100 text-yellow-800 rounded-full text-xs font-bold whitespace-nowrap">{report.status}</span>
+                    {report.status === 'Submitted to Administrator' || report.status === 'Resubmitted' || report.status === 'Under Administrator Review' || report.status === 'Query Raised' ? (
+                      <span className="px-3 py-1 bg-yellow-100 text-yellow-800 rounded-full text-xs font-bold whitespace-nowrap">Under Review</span>
+                    ) : report.status === 'Approved' ? (
+                      <span className="px-3 py-1 bg-green-100 text-green-800 rounded-full text-xs font-bold whitespace-nowrap">Approved</span>
+                    ) : report.status === 'Rejected' ? (
+                      <span className="px-3 py-1 bg-red-100 text-red-800 rounded-full text-xs font-bold whitespace-nowrap">Rejected</span>
+                    ) : (
+                      <span className="px-3 py-1 bg-gray-100 text-gray-800 rounded-full text-xs font-bold whitespace-nowrap">{report.status}</span>
+                    )}
                   </td>
                   <td className="px-6 py-4 text-right">
                     <button
@@ -419,7 +427,7 @@ const AdministratorDashboard: React.FC<{ user: any }> = ({ user }) => {
 
       {/* ── RECENT AUDIT ACTIVITY ───────────────────────── */}
       {stats.recent_activity && stats.recent_activity.length > 0 && (
-        <div id="admin-queries-section" className="bg-white rounded-xl shadow-xs border border-gray-200 p-6">
+        <div id="queries" className="bg-white rounded-xl shadow-xs border border-gray-200 p-6">
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-base font-bold text-gray-900">Recent Enterprise Audit Actions</h2>
             <button
@@ -492,40 +500,66 @@ const AdministratorDashboard: React.FC<{ user: any }> = ({ user }) => {
                 </div>
               )}
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div className="space-y-6">
-                  <div>
-                    <h3 className="text-sm font-bold text-slate-900 border-b border-slate-200 pb-2 mb-3 flex items-center"><FileText size={16} className="mr-2" /> Report Summary</h3>
-                    <p className="text-sm text-slate-600">
-                      This report compiles the validated production and operational data for {adminSelectedReport.subsidiary} for the year {adminSelectedReport.year}. All primary discrepancies have been reviewed and resolved by the Project Manager.
-                    </p>
+              <div className="bg-white border border-slate-200 rounded-xl p-6 mb-6">
+                <h3 className="text-sm font-bold text-slate-900 border-b border-slate-200 pb-2 mb-4 flex items-center">
+                  <FileText size={16} className="mr-2" /> Report Content Preview
+                </h3>
+                
+                {!adminSelectedReport.content ? (
+                  <div className="text-slate-500 italic p-4 text-center bg-slate-50 rounded">No content available.</div>
+                ) : (
+                  <div className="space-y-8">
+                    {/* Executive Summary */}
+                    {adminSelectedReport.content.executive_summary && (
+                      <div>
+                        <h4 className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">01 Executive Summary</h4>
+                        <div className="text-sm text-slate-800 leading-relaxed bg-slate-50 p-4 rounded-lg border border-slate-100">
+                          {adminSelectedReport.content.executive_summary}
+                        </div>
+                      </div>
+                    )}
+                    
+                    {/* Production Overview */}
+                    {adminSelectedReport.content.production && (
+                      <div>
+                        <h4 className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">02 Production Overview</h4>
+                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                          <div className="p-4 bg-indigo-50 border border-indigo-100 rounded-lg">
+                            <span className="text-xs text-indigo-700 font-medium">Actual</span>
+                            <p className="text-xl font-bold text-indigo-900 mt-1">{adminSelectedReport.content.production.actual} <span className="text-xs font-normal">MT</span></p>
+                          </div>
+                          <div className="p-4 bg-blue-50 border border-blue-100 rounded-lg">
+                            <span className="text-xs text-blue-700 font-medium">Target</span>
+                            <p className="text-xl font-bold text-blue-900 mt-1">{adminSelectedReport.content.production.target} <span className="text-xs font-normal">MT</span></p>
+                          </div>
+                          <div className="p-4 bg-emerald-50 border border-emerald-100 rounded-lg">
+                            <span className="text-xs text-emerald-700 font-medium">Achievement</span>
+                            <p className="text-xl font-bold text-emerald-900 mt-1">{adminSelectedReport.content.production.achievement}%</p>
+                          </div>
+                          <div className="p-4 bg-purple-50 border border-purple-100 rounded-lg">
+                            <span className="text-xs text-purple-700 font-medium">Dispatch</span>
+                            <p className="text-xl font-bold text-purple-900 mt-1">{adminSelectedReport.content.production.dispatch} <span className="text-xs font-normal">MT</span></p>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Report Sections */}
+                    {adminSelectedReport.content.sections && adminSelectedReport.content.sections.length > 0 && (
+                      <div>
+                        <h4 className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">03 Report Sections</h4>
+                        <div className="space-y-4">
+                          {adminSelectedReport.content.sections.map((sec: any, idx: number) => (
+                            <div key={idx} className="border-b border-slate-100 pb-4 last:border-0 last:pb-0">
+                              <h5 className="font-semibold text-slate-900 mb-2">{sec.title}</h5>
+                              <p className="text-sm text-slate-700 whitespace-pre-line leading-relaxed">{sec.content}</p>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
                   </div>
-                  <div>
-                    <h3 className="text-sm font-bold text-slate-900 border-b border-slate-200 pb-2 mb-3 flex items-center"><CheckCircle size={16} className="mr-2" /> Validation Status</h3>
-                    <div className="text-sm text-emerald-700 bg-emerald-50 p-3 rounded-lg border border-emerald-100 flex items-start">
-                      <CheckCircle size={18} className="mr-2 shrink-0 mt-0.5" />
-                      Data successfully validated against {adminSelectedReport.source_count || 3} source documents. No pending discrepancies.
-                    </div>
-                  </div>
-                </div>
-                <div className="space-y-6">
-                  <div>
-                    <h3 className="text-sm font-bold text-slate-900 border-b border-slate-200 pb-2 mb-3 flex items-center"><Cloud size={16} className="mr-2" /> Key Terms</h3>
-                    <div className="bg-slate-50 border border-slate-200 rounded-lg p-4 flex flex-wrap gap-2 justify-center items-center min-h-[80px]">
-                      {['Production', 'Safety', 'Geology', 'Exploration', 'Coal', 'Mining', 'Environment'].map((term) => (
-                        <span key={term} className="px-2.5 py-1 bg-white text-slate-700 rounded text-xs font-semibold border border-slate-200">{term}</span>
-                      ))}
-                    </div>
-                  </div>
-                  <div>
-                    <h3 className="text-sm font-bold text-slate-900 border-b border-slate-200 pb-2 mb-3 flex items-center"><Hash size={16} className="mr-2" /> Identified Topics</h3>
-                    <div className="flex flex-wrap gap-2">
-                      {['Production', 'Mining Operations', 'Geological Exploration', 'Safety'].map((t) => (
-                        <span key={t} className="px-2.5 py-1 bg-slate-100 text-slate-700 rounded text-xs font-semibold">{t}</span>
-                      ))}
-                    </div>
-                  </div>
-                </div>
+                )}
               </div>
 
               <div className="pt-6 border-t border-slate-200">

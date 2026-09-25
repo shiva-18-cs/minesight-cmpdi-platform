@@ -158,7 +158,7 @@ const Reports: React.FC = () => {
     window.open(url, '_blank');
   };
 
-  // ─── Submit to Administration Handler ──────────────────────────────────────
+  // ─── Submit to Administrator Handler ──────────────────────────────────────
   const isAlreadySubmitted = selectedReport?.status === 'Submitted to Administrator';
 
   const handleSubmitToAdmin = () => {
@@ -192,11 +192,11 @@ const Reports: React.FC = () => {
       ));
 
       setSubmitModalOpen(false);
-      setToast({ message: 'Report submitted to Administration successfully.', type: 'success' });
+      setToast({ message: 'Report submitted to Administrator successfully.', type: 'success' });
     } catch (err: any) {
       setSubmitModalOpen(false);
       if (err?.response?.status === 400) {
-        setToast({ message: 'This report has already been submitted to Administration.', type: 'error' });
+        setToast({ message: 'This report has already been submitted to Administrator.', type: 'error' });
       } else {
         setToast({ message: 'Failed to submit report. Please try again.', type: 'error' });
       }
@@ -221,35 +221,37 @@ const Reports: React.FC = () => {
           </p>
         </div>
         {/* Action Buttons */}
-        <div className="flex items-center gap-2 self-start sm:self-auto flex-wrap">
-          {/* Submit to Administration Button */}
-          {selectedReport && (
-            isAlreadySubmitted ? (
-              <button
-                disabled
-                className="flex items-center px-4 py-2.5 bg-emerald-50 text-emerald-700 border border-emerald-200 font-medium rounded-lg text-sm cursor-not-allowed opacity-80 shadow-sm"
-              >
-                <CheckCircle size={16} className="mr-1.5" />
-                Submitted to Administration
-              </button>
-            ) : (
-              <button
-                onClick={handleSubmitToAdmin}
-                className="flex items-center px-4 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white font-medium rounded-lg text-sm transition shadow-sm"
-              >
-                <Send size={16} className="mr-1.5" />
-                Submit to Administration
-              </button>
-            )
-          )}
-          <button
-            onClick={() => setModalOpen(true)}
-            className="flex items-center px-4 py-2.5 bg-blue-700 hover:bg-blue-800 text-white font-medium rounded-lg text-sm transition shadow-sm"
-          >
-            <Plus size={16} className="mr-1.5" />
-            Generate New Report
-          </button>
-        </div>
+        {currentUser?.role !== 'Administrator' && (
+          <div className="flex items-center gap-2 self-start sm:self-auto flex-wrap">
+            {/* Submit to Administrator Button */}
+            {selectedReport && (
+              isAlreadySubmitted ? (
+                <button
+                  disabled
+                  className="flex items-center px-4 py-2.5 bg-emerald-50 text-emerald-700 border border-emerald-200 font-medium rounded-lg text-sm cursor-not-allowed opacity-80 shadow-sm"
+                >
+                  <CheckCircle size={16} className="mr-1.5" />
+                  Submitted to Administrator
+                </button>
+              ) : (
+                <button
+                  onClick={handleSubmitToAdmin}
+                  className="flex items-center px-4 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white font-medium rounded-lg text-sm transition shadow-sm"
+                >
+                  <Send size={16} className="mr-1.5" />
+                  Submit to Administrator
+                </button>
+              )
+            )}
+            <button
+              onClick={() => setModalOpen(true)}
+              className="flex items-center px-4 py-2.5 bg-blue-700 hover:bg-blue-800 text-white font-medium rounded-lg text-sm transition shadow-sm"
+            >
+              <Plus size={16} className="mr-1.5" />
+              Generate New Report
+            </button>
+          </div>
+        )}
       </div>
 
       {loading ? (
@@ -369,7 +371,7 @@ const Reports: React.FC = () => {
                     <div className="mt-4 p-4 bg-emerald-50 border border-emerald-200 rounded-xl flex flex-col sm:flex-row sm:items-center gap-3">
                       <div className="flex items-center text-emerald-700">
                         <CheckCircle size={18} className="mr-2 shrink-0" />
-                        <span className="font-semibold text-sm">Submitted to Administration</span>
+                        <span className="font-semibold text-sm">Submitted to Administrator</span>
                       </div>
                       <div className="flex flex-wrap gap-4 text-xs text-emerald-800 sm:ml-auto">
                         <span className="flex items-center">
@@ -565,7 +567,7 @@ const Reports: React.FC = () => {
         </div>
       )}
 
-      {/* Submit to Administration Confirmation Modal */}
+      {/* Submit to Administrator Confirmation Modal */}
       {submitModalOpen && selectedReport && (
         <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center p-4 z-50">
           <div className="bg-white rounded-xl shadow-xl border border-gray-200 max-w-md w-full p-6">
@@ -575,7 +577,7 @@ const Reports: React.FC = () => {
                 <Send size={20} className="text-indigo-600" />
               </div>
               <div>
-                <h3 className="text-lg font-bold text-gray-900">Submit this report to Administration?</h3>
+                <h3 className="text-lg font-bold text-gray-900">Submit this report to Administrator?</h3>
               </div>
               <button
                 onClick={() => setSubmitModalOpen(false)}
@@ -606,7 +608,7 @@ const Reports: React.FC = () => {
             <div className="flex items-center justify-center gap-2 text-xs text-gray-400 mb-6">
               <span className="px-2 py-1 bg-indigo-50 text-indigo-700 rounded font-semibold">Project Manager</span>
               <span>→</span>
-              <span className="px-2 py-1 bg-emerald-50 text-emerald-700 rounded font-semibold">Administration</span>
+              <span className="px-2 py-1 bg-emerald-50 text-emerald-700 rounded font-semibold">Administrator</span>
               <span>→</span>
               <span className="px-2 py-1 bg-gray-100 text-gray-500 rounded font-medium">Review / Approve</span>
             </div>

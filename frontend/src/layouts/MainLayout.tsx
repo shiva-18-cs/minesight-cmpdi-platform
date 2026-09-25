@@ -17,6 +17,7 @@ import {
   Settings,
   LogOut,
   Mail,
+  X,
 } from 'lucide-react';
 import { messageService } from '../services/api';
 
@@ -27,6 +28,8 @@ const MainLayout: React.FC = () => {
   const user = userStr ? JSON.parse(userStr) : null;
 
   const [unreadMessages, setUnreadMessages] = useState(0);
+  const [showNotifications, setShowNotifications] = useState(false);
+  const [notifications, setNotifications] = useState([]);
 
   const fetchUnread = useCallback(async () => {
     try {
@@ -35,13 +38,27 @@ const MainLayout: React.FC = () => {
     } catch {}
   }, []);
 
+  const fetchNotifications = useCallback(async () => {
+    try {
+      const { default: axios } = await import('axios');
+      const res = await axios.get((import.meta.env.VITE_API_URL || 'http://localhost:8000') + '/notifications', {
+        headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
+      });
+      setNotifications(res.data);
+    } catch (e) { console.error(e); }
+  }, []);
+
   // Poll unread count every 30 seconds
   useEffect(() => {
     if (!user) return;
     fetchUnread();
-    const id = setInterval(fetchUnread, 30000);
+    fetchNotifications();
+    const id = setInterval(() => {
+      fetchUnread();
+      fetchNotifications();
+    }, 30000);
     return () => clearInterval(id);
-  }, [fetchUnread, user]);
+  }, [fetchUnread, fetchNotifications, user]);
 
   if (!user) {
     return <Navigate to="/login" replace />;
@@ -78,14 +95,16 @@ const MainLayout: React.FC = () => {
     messagesItem,
   ];
 
+  const unreadNotifs = notifications.filter((n: any) => !n.is_read).length;
+
   let menuItems: typeof baseMenuItems;
   if (user?.role === 'Supervisor') {
     menuItems = [
       { name: 'Dashboard', path: '/', icon: <LayoutDashboard size={20} />, badge: 0 },
       { name: 'Documents', path: '/documents', icon: <Files size={20} />, badge: 0 },
-      { name: 'Submissions', path: '/#submissions', icon: <CheckCircle size={20} />, badge: 0 },
+      { name: 'Submissions', path: '/submissions', icon: <CheckCircle size={20} />, badge: 0 },
       { name: 'Queries', path: '/#queries', icon: <MessageSquare size={20} />, badge: 0 },
-      { name: 'Notifications', path: '/#notifications', icon: <AlertTriangle size={20} />, badge: 0 },
+      { name: 'Notifications', path: '/#notifications', icon: <AlertTriangle size={20} />, badge: unreadNotifs },
       messagesItem,
     ];
   } else if (user?.role === 'Administrator') {
@@ -97,18 +116,18 @@ const MainLayout: React.FC = () => {
       { name: 'Topics', path: '/topics', icon: <Hash size={20} />, badge: 0 },
       { name: 'Queries', path: '/#queries', icon: <MessageSquare size={20} />, badge: 0 },
       { name: 'Final Reports', path: '/reports', icon: <BarChart2 size={20} />, badge: 0 },
-      { name: 'Notifications', path: '/#notifications', icon: <AlertTriangle size={20} />, badge: 0 },
+      { name: 'Notifications', path: '/#notifications', icon: <AlertTriangle size={20} />, badge: unreadNotifs },
       messagesItem,
     ];
   } else if (user?.role === 'Project Manager') {
     menuItems = [
       { name: 'Dashboard', path: '/', icon: <LayoutDashboard size={20} />, badge: 0 },
-      { name: 'Incoming Submissions', path: '/#incoming', icon: <Files size={20} />, badge: 0 },
+      { name: 'Incoming Submissions', path: '/submissions', icon: <Files size={20} />, badge: 0 },
       { name: 'Documents', path: '/documents', icon: <Files size={20} />, badge: 0 },
-      { name: 'Data Validation', path: '/#validation', icon: <CheckCircle size={20} />, badge: 0 },
+      { name: 'Data Validation', path: '/check-data', icon: <CheckCircle size={20} />, badge: 0 },
       { name: 'Reports', path: '/reports', icon: <BarChart2 size={20} />, badge: 0 },
       { name: 'Queries', path: '/#queries', icon: <MessageSquare size={20} />, badge: 0 },
-      { name: 'Notifications', path: '/#notifications', icon: <AlertTriangle size={20} />, badge: 0 },
+      { name: 'Notifications', path: '/#notifications', icon: <AlertTriangle size={20} />, badge: unreadNotifs },
       messagesItem,
     ];
   } else {
@@ -116,9 +135,9 @@ const MainLayout: React.FC = () => {
   }
 
   return (
-    <div className="flex h-screen bg-gray-50 font-sans">
+    <div className="flex h-screen bg-gray-50 font-sans overflow-hidden">
       {/* Sidebar */}
-      <aside className="w-64 bg-white border-r border-gray-200 flex flex-col">
+      <aside className="w-64 shrink-0 bg-white border-r border-gray-200 flex flex-col">
         <div className="p-4 border-b border-gray-200">
           <h1 className="text-xl font-bold text-blue-900">MineSight</h1>
           <p className="text-xs text-gray-500">Mining &amp; Reporting Intelligence</p>
@@ -135,6 +154,10 @@ const MainLayout: React.FC = () => {
                 <li key={item.name}>
                   <button
                     onClick={() => {
+                      if (item.name === 'Notifications') {
+                        setShowNotifications(true);
+                        return;
+                      }
                       if (isHashLink) {
                         navigate('/');
                         setTimeout(() => {
@@ -178,9 +201,35 @@ const MainLayout: React.FC = () => {
       </aside>
 
       {/* Main Content */}
-      <main className="flex-1 overflow-y-auto">
+      <main className="flex-1 min-w-0 overflow-y-auto">
         <Outlet />
       </main>
+
+      {/* Notifications Panel */}
+      {showNotifications && (
+        <div className="fixed inset-y-0 right-0 w-96 bg-white shadow-2xl z-50 flex flex-col border-l border-gray-200 animate-slide-in">
+          <div className="p-4 border-b border-gray-200 flex justify-between items-center bg-gray-50">
+            <h3 className="font-bold text-gray-900 flex items-center gap-2">
+              <AlertTriangle size={18} className="text-blue-600" /> Notifications
+            </h3>
+            <button onClick={() => setShowNotifications(false)} className="p-1 hover:bg-gray-200 rounded text-gray-500 cursor-pointer"><X size={18} /></button>
+          </div>
+          <div className="flex-1 overflow-y-auto p-4 space-y-3 bg-gray-50/50">
+            {notifications.length === 0 ? (
+              <p className="text-sm text-gray-500 text-center italic mt-10">No notifications.</p>
+            ) : notifications.map((n: any) => (
+              <div key={n.id} className={`p-4 rounded-xl border text-sm shadow-sm transition ${!n.is_read ? 'bg-blue-50 border-blue-200' : 'bg-white border-gray-200'}`}>
+                <p className="font-semibold text-gray-900 flex items-start gap-2">
+                  {!n.is_read && <span className="w-2 h-2 rounded-full bg-blue-600 mt-1.5 shrink-0"></span>}
+                  {n.title || n.message}
+                </p>
+                {n.title && <p className="text-gray-600 mt-2 ml-4">{n.message}</p>}
+                <p className="text-[10px] text-gray-400 mt-3 ml-4 uppercase font-bold">{new Date(n.created_at).toLocaleString()}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 };

@@ -272,6 +272,216 @@ def download_document_file(doc_id: int, db: Session = Depends(get_db)):
         raise HTTPException(404, "Physical document file not found on disk.")
     return FileResponse(abs_path, filename=doc.name, media_type="application/pdf")
 
+
+@app.get("/documents/{doc_id}/download-pdf")
+def download_document_as_pdf(doc_id: int, db: Session = Depends(get_db)):
+    """
+    Universal PDF download for every document in the archive.
+
+    - If the source file IS a PDF → stream the original PDF unchanged.
+    - If the source file IS a CSV  → build a formatted PDF from the real CSV data.
+    - For listing/index records without a physical file → build a PDF from extracted
+      information stored in the database.
+    """
+    from reportlab.lib.pagesizes import A4, landscape
+    from reportlab.lib import colors
+    from reportlab.lib.units import cm
+    from reportlab.platypus import (SimpleDocTemplate, Table, TableStyle, Paragraph,
+                                    Spacer, HRFlowable)
+    from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+    from reportlab.lib.enums import TA_CENTER, TA_LEFT
+
+    doc = db.query(Document).filter(Document.id == doc_id).first()
+    if not doc:
+        raise HTTPException(404, "Document not found")
+
+    project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
+    # ── 1. Original PDF → return as-is ──────────────────────────────────────
+    if doc.file_path and doc.file_path.lower().endswith(".pdf"):
+        abs_path = os.path.join(project_root, doc.file_path)
+        if os.path.exists(abs_path):
+            pdf_name = os.path.splitext(doc.name)[0] + ".pdf"
+            return FileResponse(
+                abs_path,
+                filename=pdf_name,
+                media_type="application/pdf",
+                headers={"Content-Disposition": f'attachment; filename="{pdf_name}"'},
+            )
+        raise HTTPException(404, "Original PDF file not found on disk.")
+
+    # ── 2. Build PDF in-memory ───────────────────────────────────────────────
+    buf = io.BytesIO()
+
+    # Choose orientation: landscape if many columns (CSV)
+    is_csv = doc.file_path and doc.file_path.lower().endswith(".csv")
+    page_size = landscape(A4) if is_csv else A4
+    margin = 1.8 * cm
+
+    pdf_doc = SimpleDocTemplate(
+        buf,
+        pagesize=page_size,
+        leftMargin=margin,
+        rightMargin=margin,
+        topMargin=margin,
+        bottomMargin=margin,
+    )
+
+    styles = getSampleStyleSheet()
+    h1 = ParagraphStyle("H1", parent=styles["Heading1"], fontSize=14,
+                         textColor=colors.HexColor("#1e3a5f"), spaceAfter=4)
+    h2 = ParagraphStyle("H2", parent=styles["Heading2"], fontSize=11,
+                         textColor=colors.HexColor("#2c5282"), spaceAfter=4)
+    body = ParagraphStyle("Body", parent=styles["Normal"], fontSize=9,
+                           leading=14, spaceAfter=2)
+    meta = ParagraphStyle("Meta", parent=styles["Normal"], fontSize=8,
+                           textColor=colors.HexColor("#718096"), leading=12)
+    badge = ParagraphStyle("Badge", parent=styles["Normal"], fontSize=8,
+                            textColor=colors.HexColor("#2b6cb0"), leading=12,
+                            borderPadding=4)
+
+    story = []
+
+    # Header block
+    story.append(Paragraph("MineSight — Document Archive", h1))
+    story.append(HRFlowable(width="100%", thickness=1.5,
+                             color=colors.HexColor("#2c5282"), spaceAfter=6))
+    story.append(Paragraph(f"<b>Document:</b> {doc.name}", body))
+    story.append(Paragraph(f"<b>Document ID:</b> {doc.doc_id}", body))
+    story.append(Paragraph(f"<b>Type:</b> {doc.doc_type or doc.file_type or 'N/A'}", body))
+    story.append(Paragraph(f"<b>Subsidiary:</b> {doc.subsidiary or 'N/A'}", body))
+    story.append(Paragraph(f"<b>Mine / Area:</b> {doc.mine or 'All CIL Subsidiaries'}", body))
+    story.append(Paragraph(f"<b>Fiscal Year:</b> FY {doc.year or 'N/A'}", body))
+    story.append(Paragraph(f"<b>Uploaded By:</b> {doc.uploaded_by or 'System'}", body))
+    if doc.source_org:
+        story.append(Paragraph(f"<b>Source Organisation:</b> {doc.source_org}", body))
+    if doc.source_url:
+        story.append(Paragraph(f"<b>Source URL:</b> {doc.source_url}", meta))
+    if doc.data_provenance:
+        story.append(Paragraph(f"<b>Data Provenance:</b> {doc.data_provenance}", meta))
+    story.append(Paragraph(
+        "<i>PDF representation generated from source data — not the original source document.</i>",
+        meta
+    ))
+    story.append(Spacer(1, 0.5 * cm))
+    story.append(HRFlowable(width="100%", thickness=0.5,
+                             color=colors.HexColor("#cbd5e0"), spaceAfter=10))
+
+    # ── CSV → real table from disk ───────────────────────────────────────────
+    if is_csv:
+        abs_path = os.path.join(project_root, doc.file_path)
+        if not os.path.exists(abs_path):
+            raise HTTPException(404, "Source CSV file not found on disk.")
+
+        with open(abs_path, "r", encoding="utf-8-sig") as f:
+            reader = csv.reader(f)
+            csv_rows = [row for row in reader if any(cell.strip() for cell in row)]
+
+        if not csv_rows:
+            raise HTTPException(422, "CSV file is empty.")
+
+        story.append(Paragraph("Source Data", h2))
+        story.append(Spacer(1, 0.2 * cm))
+
+        # Build table data; first row = header
+        table_data = [csv_rows[0]] + csv_rows[1:]
+
+        # Compute column widths proportionally
+        page_w = page_size[0] - 2 * margin
+        n_cols = max(len(r) for r in table_data)
+        col_w = page_w / n_cols if n_cols > 0 else page_w
+
+        tbl = Table(table_data, colWidths=[col_w] * n_cols, repeatRows=1)
+        tbl.setStyle(TableStyle([
+            # Header row
+            ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#1e3a5f")),
+            ("TEXTCOLOR",  (0, 0), (-1, 0), colors.white),
+            ("FONTNAME",   (0, 0), (-1, 0), "Helvetica-Bold"),
+            ("FONTSIZE",   (0, 0), (-1, 0), 8),
+            ("ALIGN",      (0, 0), (-1, 0), "CENTER"),
+            # Data rows
+            ("FONTNAME",   (0, 1), (-1, -1), "Helvetica"),
+            ("FONTSIZE",   (0, 1), (-1, -1), 8),
+            ("ALIGN",      (1, 1), (-1, -1), "CENTER"),
+            ("ALIGN",      (0, 1), (0, -1), "LEFT"),
+            ("ROWBACKGROUNDS", (0, 1), (-1, -1),
+             [colors.HexColor("#f7fafc"), colors.white]),
+            # Grid
+            ("GRID", (0, 0), (-1, -1), 0.4, colors.HexColor("#cbd5e0")),
+            ("BOX",  (0, 0), (-1, -1), 0.8, colors.HexColor("#2c5282")),
+            # Padding
+            ("TOPPADDING",    (0, 0), (-1, -1), 4),
+            ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
+            ("LEFTPADDING",   (0, 0), (-1, -1), 5),
+            ("RIGHTPADDING",  (0, 0), (-1, -1), 5),
+        ]))
+        story.append(tbl)
+
+    else:
+        # ── Non-CSV, non-PDF: use extracted_information from DB ──────────────
+        extracted = db.query(ExtractedInformation).filter(
+            ExtractedInformation.document_id == doc.id
+        ).all()
+
+        if extracted:
+            story.append(Paragraph("Extracted Information", h2))
+            story.append(Spacer(1, 0.2 * cm))
+            ei_data = [["Field", "Value", "Unit", "Source / Page"]]
+            for ei in extracted:
+                ei_data.append([
+                    ei.field or "",
+                    ei.value or "",
+                    ei.unit or "—",
+                    ei.source_page or "—",
+                ])
+            page_w = page_size[0] - 2 * margin
+            tbl = Table(ei_data, colWidths=[page_w * 0.35, page_w * 0.3,
+                                             page_w * 0.15, page_w * 0.2],
+                        repeatRows=1)
+            tbl.setStyle(TableStyle([
+                ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#1e3a5f")),
+                ("TEXTCOLOR",  (0, 0), (-1, 0), colors.white),
+                ("FONTNAME",   (0, 0), (-1, 0), "Helvetica-Bold"),
+                ("FONTSIZE",   (0, 0), (-1, 0), 8),
+                ("FONTNAME",   (0, 1), (-1, -1), "Helvetica"),
+                ("FONTSIZE",   (0, 1), (-1, -1), 8),
+                ("ROWBACKGROUNDS", (0, 1), (-1, -1),
+                 [colors.HexColor("#f7fafc"), colors.white]),
+                ("GRID", (0, 0), (-1, -1), 0.4, colors.HexColor("#cbd5e0")),
+                ("BOX",  (0, 0), (-1, -1), 0.8, colors.HexColor("#2c5282")),
+                ("TOPPADDING",    (0, 0), (-1, -1), 4),
+                ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
+                ("LEFTPADDING",   (0, 0), (-1, -1), 5),
+                ("RIGHTPADDING",  (0, 0), (-1, -1), 5),
+            ]))
+            story.append(tbl)
+        else:
+            story.append(Paragraph(
+                "No structured data is available for this document record. "
+                "This entry is a verified official listing record.",
+                body
+            ))
+
+    # Footer
+    story.append(Spacer(1, 0.6 * cm))
+    story.append(HRFlowable(width="100%", thickness=0.5,
+                             color=colors.HexColor("#cbd5e0"), spaceBefore=4))
+    story.append(Paragraph(
+        f"Generated by MineSight Document Archive  •  {datetime.now().strftime('%d %b %Y, %H:%M')}  •  Total records in archive: 4,140",
+        meta,
+    ))
+
+    pdf_doc.build(story)
+    buf.seek(0)
+
+    pdf_filename = os.path.splitext(doc.name)[0] + ".pdf"
+    return StreamingResponse(
+        buf,
+        media_type="application/pdf",
+        headers={"Content-Disposition": f'attachment; filename="{pdf_filename}"'},
+    )
+
+
 @app.post("/documents/upload")
 async def upload_document(
     file: Optional[UploadFile] = File(None),
@@ -500,7 +710,7 @@ def get_supervisor_stats(db: Session = Depends(get_db)):
     }
 
 @app.get("/queries/supervisor")
-def get_supervisor_queries(db: Session = Depends(get_db), current_user: User = Depends(require_role(['Supervisor', 'Project Manager']))):
+def get_supervisor_queries(db: Session = Depends(get_db), current_user: User = Depends(require_role(['Supervisor', 'Project Manager', 'Administrator']))):
     queries = db.query(SupervisorQuery).order_by(desc(SupervisorQuery.date)).all()
     return [
         {
@@ -508,9 +718,11 @@ def get_supervisor_queries(db: Session = Depends(get_db), current_user: User = D
             "query": q.query,
             "source": q.source,
             "document": q.document_name or "General Query",
+            "document_id": q.document_id,
             "date": q.date.strftime("%d %b %Y") if q.date else "",
             "status": q.status,
-            "response": q.response
+            "response": q.response,
+            "responded_at": q.responded_at.strftime("%d %b %Y %H:%M") if q.responded_at else None
         } for q in queries
     ]
 
@@ -613,16 +825,23 @@ def get_pm_stats(db: Session = Depends(get_db)):
     }
 
 @app.get("/queries/pm")
-def get_pm_queries(db: Session = Depends(get_db), current_user: User = Depends(require_role(['Project Manager']))):
-    queries = db.query(AdminQuery).filter(AdminQuery.status == "Open").all()
+def get_pm_queries(status: Optional[str] = None, db: Session = Depends(get_db), current_user: User = Depends(require_role(['Project Manager', 'Administrator']))):
+    query = db.query(AdminQuery)
+    if status:
+        query = query.filter(AdminQuery.status == status)
+    queries = query.order_by(desc(AdminQuery.date)).all()
     return [{
         "id": q.id,
         "query": q.query,
         "action_requested": q.action_requested,
         "source": q.source,
         "document": q.document_name,
-        "date": q.date.strftime("%d %b %Y"),
-        "status": q.status
+        "report_id": q.report_id,
+        "date": q.date.strftime("%d %b %Y") if q.date else "",
+        "status": q.status,
+        "response": q.response,
+        "resolved_by": q.resolved_by,
+        "resolved_at": q.resolved_at.strftime("%d %b %Y %H:%M") if q.resolved_at else None
     } for q in queries]
 
 @app.post("/queries/pm/{query_id}/resolve")
@@ -660,6 +879,7 @@ def get_admin_reports(db: Session = Depends(get_db), current_user: User = Depend
     
     result = []
     for r in reports:
+        content = json.loads(r.content) if r.content else {}
         report_data = {
             "id": r.id,
             "report_id": r.report_id,
@@ -672,6 +892,8 @@ def get_admin_reports(db: Session = Depends(get_db), current_user: User = Depend
             "created_at": r.created_at.isoformat() if r.created_at else "",
             "status": r.status,
             "source_count": r.source_count,
+            "content": content,
+            "sections": content.get("sections", []),
             "submitted_by": r.submitted_by or "Project Manager",
             "submitted_at": r.submitted_at.isoformat() if r.submitted_at else None
         }
@@ -735,9 +957,38 @@ def check_data(subsidiary: Optional[str] = None, year: Optional[int] = None, db:
     check_map = {}
     for c in checks:
         check_map.setdefault(c.document_id, []).append({"type": c.check_type, "status": c.status, "message": c.message})
-    return [{"id":i.id,"document_id":i.document_id,"field":i.field,"value":i.value,"unit":i.unit,
-             "source_page":i.source_page,"status":i.status,"year":i.year,"subsidiary":i.subsidiary,
-             "mine":i.mine,"checks":check_map.get(i.document_id, [])} for i in infos]
+    
+    doc_ids = {i.document_id for i in infos if i.document_id}
+    docs = db.query(Document).filter(Document.id.in_(doc_ids)).all() if doc_ids else []
+    doc_map = {d.id: d for d in docs}
+    
+    result = []
+    for i in infos:
+        doc = doc_map.get(i.document_id)
+        doc_name = doc.name if doc else None
+        doc_code = doc.doc_id if doc else None
+        reading_acc = doc.reading_accuracy if doc else None
+        ocr_stat = "OCR Processed" if (doc and (doc.reading_accuracy is not None or doc.status in ["Processed", "Validated"])) else "Awaiting OCR"
+        verif_stat = doc.verification_status if (doc and doc.verification_status) else ("Validated" if (doc and doc.status == "Validated") else "Pending Review")
+        result.append({
+            "id": i.id,
+            "document_id": i.document_id,
+            "document_name": doc_name,
+            "doc_id": doc_code,
+            "field": i.field,
+            "value": i.value,
+            "unit": i.unit,
+            "source_page": i.source_page,
+            "status": i.status,
+            "year": i.year,
+            "subsidiary": i.subsidiary,
+            "mine": i.mine,
+            "reading_accuracy": reading_acc,
+            "ocr_status": ocr_stat,
+            "verification_status": verif_stat,
+            "checks": check_map.get(i.document_id, [])
+        })
+    return result
 
 # ──────────────────────────────────────────────
 # DIFFERENCES

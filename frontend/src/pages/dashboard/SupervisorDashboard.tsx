@@ -292,7 +292,7 @@ const SupervisorDashboard: React.FC<{ user: any }> = ({ user }) => {
             />
             <CompactMetric
               label="Extracted Fields"
-              value={supStats?.information_found !== undefined ? Number(supStats.information_found).toLocaleString() : '—'}
+              value={supStats?.extracted_fields !== undefined ? Number(supStats.extracted_fields).toLocaleString() : supStats?.information_found !== undefined ? Number(supStats.information_found).toLocaleString() : '—'}
               valueColor="text-purple-700"
               sublabel="Structured data points"
             />

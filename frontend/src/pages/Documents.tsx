@@ -62,6 +62,44 @@ const Documents: React.FC = () => {
   const [viewLoading, setViewLoading] = useState(false);
   const [deleteId, setDeleteId] = useState<number | null>(null);
 
+  const currentUser = (() => {
+    try { return JSON.parse(localStorage.getItem('user') || '{}'); } catch { return {}; }
+  })();
+
+  const [downloadingId, setDownloadingId] = useState<number | null>(null);
+  const [downloadError, setDownloadError] = useState<string | null>(null);
+
+  const handleDownloadPdf = async (doc: DocumentRecord) => {
+    if (downloadingId !== null) return; // prevent double-click
+    setDownloadingId(doc.id);
+    setDownloadError(null);
+    try {
+      const resp = await fetch(`${API}/documents/${doc.id}/download-pdf`, {
+        headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
+      });
+      if (!resp.ok) {
+        const err = await resp.json().catch(() => ({}));
+        throw new Error(err.detail || 'PDF download unavailable for this document.');
+      }
+      const blob = await resp.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      const disposition = resp.headers.get('content-disposition') || '';
+      const fnMatch = disposition.match(/filename="?([^"]+)"?/);
+      a.download = fnMatch ? fnMatch[1] : `${doc.doc_id}.pdf`;
+      a.href = url;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    } catch (e: any) {
+      setDownloadError(e.message || 'PDF download failed.');
+      setTimeout(() => setDownloadError(null), 5000);
+    } finally {
+      setDownloadingId(null);
+    }
+  };
+
   useEffect(() => {
     fetchDocs();
   }, []);
@@ -129,15 +167,13 @@ const Documents: React.FC = () => {
   };
 
   const handleDownload = (doc: DocumentRecord) => {
-    const blob = new Blob([
-      `MineSight Ingested Document Extract\nDocument ID: ${doc.doc_id}\nName: ${doc.name}\nSubsidiary: ${doc.subsidiary}\nMine: ${doc.mine}\nFiscal Year: ${doc.year}\nPages: ${doc.pages}\nReading Accuracy: ${doc.reading_accuracy}%\nUploaded By: ${doc.uploaded_by}`
-    ], { type: 'text/plain' });
-    const url = URL.createObjectURL(blob);
+    const url = `${API}/documents/${doc.id}/download`;
     const a = document.createElement('a');
     a.href = url;
-    a.download = `${doc.doc_id}_summary.txt`;
+    a.download = doc.name;
+    document.body.appendChild(a);
     a.click();
-    URL.revokeObjectURL(url);
+    document.body.removeChild(a);
   };
 
   const filteredDocs = documents.filter(d => {
@@ -152,25 +188,35 @@ const Documents: React.FC = () => {
   });
 
   return (
-    <div className="p-8 max-w-7xl mx-auto space-y-6">
+    <div className="p-4 sm:p-6 lg:p-8 max-w-7xl mx-auto space-y-6 w-full">
+      {/* PDF Download Error Banner */}
+      {downloadError && (
+        <div className="flex items-center gap-3 px-4 py-3 bg-red-50 border border-red-200 rounded-xl text-sm text-red-700 font-medium shadow-sm">
+          <AlertCircle size={16} className="shrink-0 text-red-500" />
+          {downloadError}
+        </div>
+      )}
+
       {/* Top Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Document Archive</h1>
           <p className="text-sm text-gray-500">Ingest, search, inspect extracted tables, and audit OCR document text.</p>
         </div>
-        <button 
-          onClick={() => setUploadModalOpen(true)}
-          className="flex items-center px-4 py-2.5 bg-blue-700 hover:bg-blue-800 text-white font-medium rounded-lg shadow-xs transition text-sm self-start sm:self-auto cursor-pointer"
-        >
-          <Upload size={16} className="mr-2" />
-          Upload &amp; Extract Document
-        </button>
+        {currentUser?.role !== 'Administrator' && (
+          <button 
+            onClick={() => setUploadModalOpen(true)}
+            className="flex items-center px-4 py-2.5 bg-blue-700 hover:bg-blue-800 text-white font-medium rounded-lg shadow-xs transition text-sm self-start sm:self-auto cursor-pointer"
+          >
+            <Upload size={16} className="mr-2" />
+            Upload &amp; Extract Document
+          </button>
+        )}
       </div>
 
       {/* Filter and Search Bar */}
       <div className="bg-white rounded-xl shadow-xs border border-gray-200 p-4 flex flex-wrap items-center justify-between gap-4">
-        <div className="relative w-72">
+        <div className="relative w-full sm:w-72">
           <SearchIcon size={16} className="absolute left-3 top-3 text-gray-400" />
           <input
             type="text"
@@ -181,7 +227,7 @@ const Documents: React.FC = () => {
           />
         </div>
 
-        <div className="flex items-center space-x-3">
+        <div className="flex flex-wrap items-center gap-3">
           <select 
             value={docTypeFilter}
             onChange={(e) => setDocTypeFilter(e.target.value)}
@@ -223,41 +269,43 @@ const Documents: React.FC = () => {
             <table className="min-w-full divide-y divide-gray-200 text-sm">
               <thead className="bg-gray-50">
                 <tr>
-                  <th className="px-6 py-3.5 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Document Name &amp; ID</th>
-                  <th className="px-6 py-3.5 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Type &amp; Dept</th>
-                  <th className="px-6 py-3.5 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Subsidiary / Mine</th>
-                  <th className="px-6 py-3.5 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">OCR Status</th>
-                  <th className="px-6 py-3.5 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Confidence</th>
-                  <th className="px-6 py-3.5 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Workflow Status</th>
-                  <th className="px-6 py-3.5 text-right text-xs font-semibold text-gray-500 uppercase tracking-wider">Actions</th>
+                  <th className="px-4 py-3.5 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Document Name &amp; ID</th>
+                  <th className="px-4 py-3.5 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Type &amp; Dept</th>
+                  <th className="px-4 py-3.5 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Subsidiary / Mine</th>
+                  <th className="px-4 py-3.5 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">OCR Status</th>
+                  <th className="px-4 py-3.5 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Confidence</th>
+                  <th className="px-4 py-3.5 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Workflow Status</th>
+                  <th className="px-4 py-3.5 text-right text-xs font-semibold text-gray-500 uppercase tracking-wider sticky right-0 bg-gray-50 shadow-[-4px_0_6px_-2px_rgba(0,0,0,0.03)] z-10">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
                 {filteredDocs.map((doc) => (
-                  <tr key={doc.id} className="hover:bg-gray-50 transition">
-                    <td className="px-6 py-4">
+                  <tr key={doc.id} className="group hover:bg-gray-50 transition">
+                    <td className="px-4 py-3.5">
                       <div className="flex items-center space-x-3">
                         <div className="p-2 bg-blue-50 text-blue-700 rounded-lg shrink-0">
                           <FileText size={18} />
                         </div>
-                        <div>
-                          <div className="font-semibold text-gray-900">{doc.name}</div>
+                        <div className="min-w-0">
+                          <div className="font-semibold text-gray-900 truncate max-w-[220px] sm:max-w-xs md:max-w-sm" title={doc.name}>
+                            {doc.name}
+                          </div>
                           <div className="text-xs text-gray-400 font-mono">{doc.doc_id} • {doc.pages} pages</div>
                         </div>
                       </div>
                     </td>
-                    <td className="px-6 py-4 text-xs text-gray-600">
+                    <td className="px-4 py-3.5 text-xs text-gray-600 whitespace-nowrap">
                       <div className="font-medium text-gray-800">{doc.doc_type}</div>
                       <div className="text-gray-400">{doc.department || 'Operations'}</div>
                     </td>
-                    <td className="px-6 py-4 text-xs text-gray-700">
+                    <td className="px-4 py-3.5 text-xs text-gray-700 whitespace-nowrap">
                       <div className="font-semibold text-gray-900 flex items-center">
-                        <Building2 size={13} className="mr-1 text-gray-400" />
+                        <Building2 size={13} className="mr-1 text-gray-400 shrink-0" />
                         {doc.subsidiary}
                       </div>
                       <div className="text-gray-500">{doc.mine || 'Area Level'} • FY {doc.year}</div>
                     </td>
-                    <td className="px-6 py-4 text-xs">
+                    <td className="px-4 py-3.5 text-xs whitespace-nowrap">
                       {doc.reading_accuracy || doc.status === 'Processed' || doc.status === 'Validated' ? (
                         <span className="px-2.5 py-1 inline-flex items-center text-xs font-semibold rounded-full bg-cyan-50 text-cyan-800 border border-cyan-200">
                           <ScanLine size={12} className="mr-1 text-cyan-600" /> OCR Processed
@@ -268,7 +316,7 @@ const Documents: React.FC = () => {
                         </span>
                       )}
                     </td>
-                    <td className="px-6 py-4 text-xs font-mono">
+                    <td className="px-4 py-3.5 text-xs font-mono whitespace-nowrap">
                       {doc.reading_accuracy ? (
                         <span className="px-2 py-0.5 bg-emerald-50 text-emerald-700 font-bold rounded border border-emerald-200">
                           {doc.reading_accuracy}%
@@ -277,33 +325,58 @@ const Documents: React.FC = () => {
                         <span className="text-gray-400">N/A</span>
                       )}
                     </td>
-                    <td className="px-6 py-4">
+                    <td className="px-4 py-3.5 whitespace-nowrap">
                       <span className="px-2.5 py-0.5 inline-flex text-xs font-semibold rounded-full bg-blue-100 text-blue-800">
                         {doc.status}
                       </span>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-right space-x-2">
-                      <button 
-                        onClick={() => handleViewDoc(doc.id)} 
-                        className="p-1.5 text-blue-600 hover:bg-blue-50 rounded-md transition cursor-pointer" 
-                        title="View Extracted Facts & OCR Text"
-                      >
-                        <Eye size={17} />
-                      </button>
-                      <button 
-                        onClick={() => handleDownload(doc)} 
-                        className="p-1.5 text-gray-600 hover:bg-gray-100 rounded-md transition cursor-pointer" 
-                        title="Download Summary"
-                      >
-                        <Download size={17} />
-                      </button>
-                      <button 
-                        onClick={() => handleDelete(doc.id)} 
-                        className="p-1.5 text-red-500 hover:bg-red-50 rounded-md transition cursor-pointer" 
-                        title="Delete Document"
-                      >
-                        <Trash2 size={17} />
-                      </button>
+                    <td className="px-4 py-3.5 whitespace-nowrap text-right sticky right-0 bg-white group-hover:bg-gray-50 shadow-[-4px_0_6px_-2px_rgba(0,0,0,0.03)] z-10">
+                      <div className="flex items-center justify-end gap-1">
+                        {/* View */}
+                        <button
+                          onClick={() => handleViewDoc(doc.id)}
+                          className="p-1.5 text-blue-600 hover:bg-blue-50 rounded-md transition cursor-pointer"
+                          title="View Extracted Facts & OCR Text"
+                        >
+                          <Eye size={16} />
+                        </button>
+
+                        {/* Download PDF */}
+                        <button
+                          id={`download-pdf-${doc.id}`}
+                          onClick={() => handleDownloadPdf(doc)}
+                          disabled={downloadingId === doc.id}
+                          title="Download PDF"
+                          className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-md border text-xs font-semibold transition cursor-pointer ${
+                            downloadingId === doc.id
+                              ? 'border-gray-200 text-gray-400 bg-gray-50 cursor-not-allowed'
+                              : 'border-indigo-200 text-indigo-700 bg-indigo-50 hover:bg-indigo-100 hover:border-indigo-300'
+                          }`}
+                        >
+                          {downloadingId === doc.id ? (
+                            <>
+                              <div className="w-3 h-3 border-2 border-indigo-400 border-t-transparent rounded-full animate-spin" />
+                              <span>PDF</span>
+                            </>
+                          ) : (
+                            <>
+                              <Download size={13} />
+                              <span>PDF</span>
+                            </>
+                          )}
+                        </button>
+
+                        {/* Delete — hide for Administrator */}
+                        {currentUser?.role !== 'Administrator' && (
+                          <button
+                            onClick={() => handleDelete(doc.id)}
+                            className="p-1.5 text-red-500 hover:bg-red-50 rounded-md transition cursor-pointer"
+                            title="Delete Document"
+                          >
+                            <Trash2 size={16} />
+                          </button>
+                        )}
+                      </div>
                     </td>
                   </tr>
                 ))}
@@ -437,7 +510,7 @@ const Documents: React.FC = () => {
                 </div>
                 <h3 className="text-lg font-bold text-gray-900 mt-1.5">{viewDoc.document?.name}</h3>
                 <p className="text-xs text-gray-500 mb-2">
-                  {viewDoc.document?.subsidiary} • {viewDoc.document?.mine} • OCR Reading Accuracy: {viewDoc.document?.reading_accuracy}%
+                  {viewDoc.document?.subsidiary} • {viewDoc.document?.mine} • {viewDoc.document?.doc_type} • Uploaded: {viewDoc.document?.upload_date ? new Date(viewDoc.document.upload_date).toLocaleDateString() : 'N/A'} • OCR Accuracy: {viewDoc.document?.reading_accuracy}%
                 </p>
                 <div className="flex flex-wrap items-center gap-2">
                   {viewDoc.document?.is_official_raw_download ? (

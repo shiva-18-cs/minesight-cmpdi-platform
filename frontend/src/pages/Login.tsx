@@ -140,10 +140,10 @@ const Login: React.FC = () => {
             <button
               type="button"
               disabled={loading}
-              onClick={() => handleDemoLogin('admin', 'admin123')}
-              className="px-3 py-2 text-xs font-semibold text-slate-700 bg-white border border-slate-300 rounded-lg hover:bg-slate-50 hover:border-blue-600 transition shadow-xs text-center disabled:opacity-50"
+              onClick={() => handleDemoLogin('supervisor', 'supervisor123')}
+              className="px-3 py-2 text-xs font-semibold text-slate-700 bg-white border border-slate-300 rounded-lg hover:bg-slate-50 hover:border-emerald-600 transition shadow-xs text-center disabled:opacity-50"
             >
-              Administrator Demo
+              Supervisor Demo
             </button>
             <button
               type="button"
@@ -156,10 +156,10 @@ const Login: React.FC = () => {
             <button
               type="button"
               disabled={loading}
-              onClick={() => handleDemoLogin('supervisor', 'supervisor123')}
-              className="px-3 py-2 text-xs font-semibold text-slate-700 bg-white border border-slate-300 rounded-lg hover:bg-slate-50 hover:border-emerald-600 transition shadow-xs text-center disabled:opacity-50"
+              onClick={() => handleDemoLogin('admin', 'admin123')}
+              className="px-3 py-2 text-xs font-semibold text-slate-700 bg-white border border-slate-300 rounded-lg hover:bg-slate-50 hover:border-blue-600 transition shadow-xs text-center disabled:opacity-50"
             >
-              Supervisor Demo
+              Administrator Demo
             </button>
           </div>
           <p className="text-[11px] text-slate-400 text-center mt-2.5">

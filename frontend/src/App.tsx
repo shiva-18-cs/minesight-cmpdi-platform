@@ -17,6 +17,7 @@ import ActivityHistory from './pages/ActivityHistory';
 import Users from './pages/Users';
 import Settings from './pages/Settings';
 import Messages from './pages/Messages';
+import Submissions from './pages/Submissions';
 
 function App() {
   return (
@@ -39,6 +40,7 @@ function App() {
           <Route path="users" element={<Users />} />
           <Route path="settings" element={<Settings />} />
           <Route path="messages" element={<Messages />} />
+          <Route path="submissions" element={<Submissions />} />
           {/* Fallback to dashboard */}
           <Route path="*" element={<Navigate to="/" replace />} />
         </Route>
